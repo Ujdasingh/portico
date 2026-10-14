@@ -68,7 +68,7 @@ struct ContentView: View {
             }.buttonStyle(.plain).padding(.horizontal, 12)
             HStack { Text("YOUR APPS").font(.system(size: 10, weight: .semibold)).tracking(1.7); Spacer(); Text("\(model.profiles.count)").font(.system(size: 10, weight: .medium)) }.foregroundStyle(.white.opacity(0.35)).padding(.horizontal, 24).padding(.top, 29).padding(.bottom, 12)
             if !model.profiles.isEmpty {
-                HStack { Image(systemName: "magnifyingglass"); TextField("Find an app", text: $search).textFieldStyle(.plain) }.font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).padding(9).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 7)).padding(.horizontal, 18).padding(.bottom, 9)
+                HStack { Image(systemName: "magnifyingglass"); TextField("Find an app", text: $search, prompt: Text("Find an app").foregroundColor(.white.opacity(0.5))).textFieldStyle(.plain).foregroundStyle(.white) }.font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).padding(9).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 7)).padding(.horizontal, 18).padding(.bottom, 9)
             }
             ScrollView {
                 VStack(spacing: 5) {

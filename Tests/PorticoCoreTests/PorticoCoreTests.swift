@@ -103,7 +103,7 @@ final class PorticoCoreTests: XCTestCase {
         app.executablePath = "Program Files/Test App/app.exe"
         try Data().write(to: try store.executableURL(for: app)); try Data().write(to: prefix.appendingPathComponent("slow"))
         let service = WineService(store: store)
-        let running = Task { try await service.launch(profile: app) }
+        let running = Task { [app] in try await service.launch(profile: app) }
         try await Task.sleep(nanoseconds: 100_000_000)
         do { _ = try await service.snapshot(profile: app); XCTFail("Snapshot must refuse a running app") }
         catch { XCTAssertTrue(error.localizedDescription.contains("already running")) }
