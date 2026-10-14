@@ -1,0 +1,25 @@
+.build/
+dist/
+.runtime/
+.portico-data/
+.qa/
+.DS_Store
+*.xcuserstate
+# Never publish business data, licences, credentials, or downloaded runtimes.
+.env
+.env.*
+*.lic
+*.900
+*.1800
+*.tcp
+*.exe
+*.msi
+*.dll
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+*.log
+*.xcarchive
+.swiftpm/

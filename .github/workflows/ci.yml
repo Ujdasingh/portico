@@ -1,0 +1,25 @@
+name: macOS build and tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test backend and malformed-input handling
+        run: swift test --disable-sandbox
+      - name: Build and verify app signature
+        run: ./scripts/build.sh
+      - name: Reject a private library pointer in public builds
+        run: |
+          if /usr/libexec/PlistBuddy -c 'Print :PorticoLibraryPath' dist/Portico.app/Contents/Info.plist; then
+            echo 'Private library pointer found in public app' >&2
+            exit 1
+          fi
