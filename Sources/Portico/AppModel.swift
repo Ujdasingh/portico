@@ -93,7 +93,7 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 let runtime = try await EngineInstaller.install(into: store.rootURL.appendingPathComponent("Runtimes")) { [weak self] message in
-                    Task { @MainActor in self?.runtimeProgress = message }
+                    Task { @MainActor [weak self] in self?.runtimeProgress = message }
                 }
                 addRuntime(runtime); preferredRuntime = runtime.url.path
                 runtimeProgress = nil; runtimeCheck = "Download verified. Run the engine check before installing an app."
