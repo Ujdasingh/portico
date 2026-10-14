@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 
 /// A lifetime lock prevents two app copies from saving over the same library.
-public final class LibrarySession {
+public final class LibrarySession: @unchecked Sendable {
     private let descriptor: Int32
     public init(root: URL) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

@@ -35,9 +35,11 @@ Do not infer that a startup success validates the rest of these steps.
 
 ## 0.2.0 hardening — 15 October 2026
 
-- 13 automated tests pass, including library lifetime locking and malformed PE resource offsets.
+- 15 automated tests pass, including library lifetime locking and malformed PE resource offsets.
 - Native Portico UI reports TallyPrime 5.1 and 7.2 installed, with their installed tally.exe paths selected. The earlier installer-only observations above describe the first test session. Licence activation and accounting acceptance tests remain unverified.
 - Real installed icons for both Tally versions and Wine Notepad were extracted and decoded locally.
 - Windows sessions are checked on startup and monitored until they close; duplicate library writers are refused.
 - The public build contains no personal library pointer; the configured local Applications copy is separate.
 - Developer ID signing and notarization remain unverified because release credentials have not been supplied.
+
+Startup file I/O runs off the main thread, and the environment idle probe rejects a nonzero wineserver result before snapshotting.

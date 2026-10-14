@@ -9,7 +9,8 @@ There is no production-support SLA or guarantee that an arbitrary Windows app wo
 ## Engineering checks completed locally
 
 - Native release build and ad hoc signature verification.
-- Unit tests for process, persistence, recovery, locking, and PE icon parsing.
+- Unit tests for process, persistence, recovery, locking, deferred library preparation, and PE icon parsing.
+- Background library loading keeps the window responsive during protected-folder access.
 - Actual icon extraction from installed TallyPrime 5.1, 7.2, and Wine Notepad.
 - Runtime checksum/download and real Windows command execution.
 - Separate installation of TallyPrime 5.1 and 7.2 observed.

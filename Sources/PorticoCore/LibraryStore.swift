@@ -2,9 +2,14 @@ import Foundation
 
 public struct LibraryStore: Sendable {
     public let rootURL: URL
+    /// No filesystem access: lets the UI appear before a protected-folder prompt.
+    public init(location: URL) { self.rootURL = location.standardizedFileURL }
     public init(rootURL: URL) throws {
+        self.init(location: rootURL.resolvingSymlinksInPath())
+        try prepare()
+    }
+    public func prepare() throws {
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
-        self.rootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
         for folder in ["Apps", "Logs", "Backups", "Runtimes"] {
             try FileManager.default.createDirectory(at: rootURL.appendingPathComponent(folder), withIntermediateDirectories: true)
         }

@@ -2,6 +2,16 @@ import XCTest
 @testable import PorticoCore
 
 final class ReleaseReadinessTests: XCTestCase {
+    func testLibraryLocationDoesNotTouchDiskBeforeBackgroundPreparation() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = LibraryStore(location: root)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+        try store.prepare()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("Apps").path))
+        XCTAssertEqual(try store.load(), [])
+    }
+
     func testLibraryLifetimeLockRejectsDuplicateAndReleasesOnClose() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

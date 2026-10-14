@@ -116,7 +116,10 @@ public actor WineService {
     }
     private func ensureIdle(_ profile: AppProfile, log: URL) async throws {
         guard FileManager.default.fileExists(atPath: store.prefixURL(for: profile).appendingPathComponent("system.reg").path) else { return }
-        do { _ = try await server(profile, arguments: ["-w"], log: log, timeout: 2) }
+        do {
+            let code = try await server(profile, arguments: ["-w"], log: log, timeout: 5)
+            guard code == 0 else { throw PorticoError.message("Wine could not confirm the environment is idle.") }
+        }
         catch { throw PorticoError.message("A Windows process is still using this environment. Close its windows, or use Stop app, before making changes.") }
     }
     private func initialize(_ profile: AppProfile, log: URL) async throws {

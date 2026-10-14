@@ -40,7 +40,7 @@ struct ContentView: View {
             Button("Cancel", role: .cancel) { confirmRestore = nil }
         } message: { Text("Portico will preserve the current environment in a separate folder before replacing it. External data files are not included.") }
         .task(id: model.selectedID) { await model.refreshDetails() }
-        .disabled(model.storageFailed)
+        .disabled(model.storageFailed || model.storageLoading)
         .overlay {
             if model.storageFailed {
                 VStack(spacing: 18) {
@@ -51,6 +51,13 @@ struct ContentView: View {
                         Button("Show library folder") { model.reveal(model.store.rootURL) }
                         Button("Quit Portico") { NSApp.terminate(nil) }
                     }
+                }.padding(40).frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.canvas)
+            } else if model.storageLoading {
+                VStack(spacing: 18) {
+                    ProgressView()
+                    Text("Opening your library…").font(.title3.bold())
+                    Text("If macOS asks for access to the library folder, allow it to continue.").foregroundStyle(Palette.muted)
+                    Button("Quit Portico") { NSApp.terminate(nil) }
                 }.padding(40).frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.canvas)
             }
         }

@@ -92,6 +92,13 @@ final class PorticoCoreTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: data), "before")
         XCTAssertEqual(try String(contentsOf: rollback.appendingPathComponent("drive_c/accounts.txt")), "after")
     }
+    func testSnapshotRefusesFailedWineserverProbe() async throws {
+        let app = profile(); _ = try prepare(app)
+        try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))
+        do { _ = try await WineService(store: store).snapshot(profile: app); XCTFail("Cannot snapshot without confirming idle") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("environment")) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.backupDirectory(for: app).path))
+    }
     func testForeignSnapshotCannotReplaceEnvironment() async throws {
         let app = profile(); _ = try prepare(app)
         let foreign = PrefixSnapshot(profileID: UUID(), runtimePath: runtime.path)

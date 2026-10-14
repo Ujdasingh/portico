@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var showLog = false
     @Published var logText = ""
     @Published var storageFailed = false
+    @Published var storageLoading = true
     let store: LibraryStore
     let service: WineService
     private var librarySession: LibrarySession?
@@ -34,28 +35,33 @@ final class AppModel: ObservableObject {
             ?? (FileManager.default.fileExists(atPath: portableRoot.appendingPathComponent(".portable-library").path) ? portableRoot.resolvingSymlinksInPath() : nil)
             ?? (Bundle.main.object(forInfoDictionaryKey: "PorticoLibraryPath") as? String).map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Portico")
-        do { store = try LibraryStore(rootURL: root) }
-        catch {
-            // Display a recovery screen, never silently start a new permanent library.
-            store = try! LibraryStore(rootURL: FileManager.default.temporaryDirectory.appendingPathComponent("Portico-error-\(UUID().uuidString)"))
-            self.error = "Cannot open the Portico library: \(error.localizedDescription)"; storageFailed = true
-        }
+        store = LibraryStore(location: root)
         service = WineService(store: store)
-        do {
-            if !storageFailed { librarySession = try LibrarySession(root: store.rootURL) }
-            profiles = try store.load()
-        }
-        catch { self.error = "The library could not be opened. Your files are untouched. \(error.localizedDescription)"; storageFailed = true }
-        selectedID = profiles.first?.id
-        if !storageFailed { refreshRuntimes() }
-        if let configured = ProcessInfo.processInfo.environment["PORTICO_WINE"], let runtime = try? WineService.validateRuntime(at: URL(fileURLWithPath: configured)) {
-            addRuntime(runtime); preferredRuntime = runtime.url.path
-        }
-        if !storageFailed {
-            for profile in profiles {
-                perform(profile, status: "Checking previous session…", canStop: true) {
-                    try await self.service.waitForExistingSession(profile: profile)
+        let library = store
+        Task {
+            do {
+                let loaded = try await Task.detached(priority: .userInitiated) {
+                    try library.prepare()
+                    let session = try LibrarySession(root: library.rootURL)
+                    let profiles = try library.load()
+                    return (session, profiles)
+                }.value
+                librarySession = loaded.0
+                profiles = loaded.1
+                selectedID = profiles.first?.id
+                refreshRuntimes()
+                if let configured = ProcessInfo.processInfo.environment["PORTICO_WINE"], let runtime = try? WineService.validateRuntime(at: URL(fileURLWithPath: configured)) {
+                    addRuntime(runtime); preferredRuntime = runtime.url.path
                 }
+                storageLoading = false
+                for profile in profiles {
+                    perform(profile, status: "Checking previous session…", canStop: true) {
+                        try await self.service.waitForExistingSession(profile: profile)
+                    }
+                }
+            } catch {
+                storageLoading = false; storageFailed = true
+                self.error = "The library could not be opened. Your files are untouched. \(error.localizedDescription)"
             }
         }
     }
@@ -64,7 +70,7 @@ final class AppModel: ObservableObject {
     var runningCount: Int { operations.count }
     @discardableResult
     func save() -> Bool {
-        guard !storageFailed else { return false }
+        guard !storageFailed, !storageLoading else { return false }
         do { try store.save(profiles); return true }
         catch { self.error = "Could not save the library: \(error.localizedDescription)"; return false }
     }
@@ -123,7 +129,7 @@ final class AppModel: ObservableObject {
         return panel.runModal() == .OK ? panel.url : nil
     }
     func addApp(name: String, portable: Bool) {
-        guard !storageFailed, !preferredRuntime.isEmpty else { showRuntime = true; return }
+        guard !storageFailed, !storageLoading, !preferredRuntime.isEmpty else { showRuntime = true; return }
         guard let source = chooseWindowsFile(portable: portable) else { return }
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var profile = AppProfile(name: cleanName.isEmpty ? source.deletingPathExtension().lastPathComponent : cleanName, runtimePath: preferredRuntime)
@@ -185,7 +191,7 @@ final class AppModel: ObservableObject {
         }
     }
     func perform(_ profile: AppProfile, status: String, canStop: Bool = false, operation: @escaping @MainActor () async throws -> Void) {
-        guard operations[profile.id] == nil, !storageFailed else { return }
+        guard operations[profile.id] == nil, !storageFailed, !storageLoading else { return }
         operations[profile.id] = status; notice = nil
         if canStop { stoppable.insert(profile.id) }
         Task {
