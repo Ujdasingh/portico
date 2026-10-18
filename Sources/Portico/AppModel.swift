@@ -22,6 +22,8 @@ final class AppModel: ObservableObject {
     @Published var runtimeProgress: String?
     @Published var runtimeCheck: String?
     @Published var showLog = false
+    @Published var showSupport = false
+    @Published var supportReport = ""
     @Published var logText = ""
     @Published var storageFailed = false
     @Published var storageLoading = true
@@ -235,6 +237,24 @@ final class AppModel: ObservableObject {
     func findLatestLog(_ profile: AppProfile) {
         let logs = (try? FileManager.default.contentsOfDirectory(at: store.logDirectory(for: profile), includingPropertiesForKeys: nil)) ?? []
         latestLog = logs.filter { $0.pathExtension == "log" }.sorted { $0.lastPathComponent > $1.lastPathComponent }.first
+    }
+    func openSupportReport() {
+        supportReport = SupportReport.render(
+            appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+            profiles: profiles,
+            libraryState: storageLoading ? .loading : (storageFailed ? .unavailable : .ready),
+            activeOperations: operations.count)
+        showSupport = true
+    }
+    func saveSupportReport() {
+        let panel = NSSavePanel()
+        panel.title = "Save support report"
+        panel.nameFieldStringValue = "Portico-support.txt"
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try supportReport.write(to: url, atomically: true, encoding: .utf8) }
+        catch { self.error = "Could not save the support report: \(error.localizedDescription)" }
     }
     func openLog() { if let profile = selected { findLatestLog(profile) }; guard let latestLog else { return }; logText = WineService.tail(latestLog); showLog = true }
     func reveal(_ url: URL) { NSWorkspace.shared.open(url) }

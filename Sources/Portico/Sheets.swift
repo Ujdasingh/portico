@@ -65,3 +65,25 @@ struct LogView: View {
         }.padding(28).frame(width: 760).background(Palette.canvas)
     }
 }
+
+struct SupportReportView: View {
+    @EnvironmentObject var model: AppModel
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Support report").font(.system(size: 23, weight: .semibold))
+            Text("Review the report below before saving or sharing it. Nothing is uploaded automatically.")
+                .font(.system(size: 12)).foregroundStyle(Palette.muted)
+            ScrollView {
+                Text(model.supportReport).font(.system(size: 12, design: .monospaced))
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(16)
+            }.frame(height: 290).background(Color.white, in: RoundedRectangle(cornerRadius: 10))
+            HStack {
+                Button("Refresh") { model.openSupportReport() }.buttonStyle(SecondaryStyle())
+                Button("Save report…") { model.saveSupportReport() }.buttonStyle(SecondaryStyle())
+                Spacer()
+                Button("Done") { dismiss() }.buttonStyle(PrimaryStyle())
+            }
+        }.padding(28).frame(width: 660).background(Palette.canvas)
+    }
+}

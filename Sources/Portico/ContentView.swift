@@ -26,6 +26,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $model.showAdd) { AddAppView().environmentObject(model) }
         .sheet(isPresented: $model.showRuntime) { RuntimeView().environmentObject(model) }
+        .sheet(isPresented: $model.showSupport) { SupportReportView().environmentObject(model) }
         .sheet(isPresented: $model.showLog) { LogView().environmentObject(model) }
         .alert("Something needs attention", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             if model.latestLog != nil { Button("View log") { model.openLog() } }

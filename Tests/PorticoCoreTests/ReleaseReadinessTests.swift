@@ -2,6 +2,54 @@ import XCTest
 @testable import PorticoCore
 
 final class ReleaseReadinessTests: XCTestCase {
+    func testSupportReportDoesNotIncludePrivateProfileFields() {
+        let profile = AppProfile(name: "Private Company", runtimePath: "/Users/secret/Wine/bin/wine",
+                                 executablePath: "secret/accounts.exe", notes: "licence-secret")
+        let report = SupportReport.render(appVersion: "0.2.2", build: "4", profiles: [profile],
+                                          libraryState: .ready, activeOperations: 1)
+        for secret in [profile.name, profile.runtimePath, profile.executablePath!, profile.notes, profile.id.uuidString] {
+            XCTAssertFalse(report.contains(secret))
+        }
+        XCTAssertTrue(report.contains("App profiles: 1"))
+        XCTAssertTrue(report.contains("Active operations: 1"))
+        let malformed = SupportReport.render(appVersion: "private@example.com", build: "/Users/secret", profiles: [],
+                                             libraryState: .unavailable, activeOperations: -1)
+        XCTAssertFalse(malformed.contains("private@example.com"))
+        XCTAssertFalse(malformed.contains("/Users/secret"))
+        XCTAssertTrue(malformed.contains("App version: unknown"))
+    }
+
+    func testDuplicateLibraryIdentifiersNeverOverwriteMetadata() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try LibraryStore(rootURL: root)
+        let profile = AppProfile(name: "Test", runtimePath: "/runtime/wine")
+        try store.save([profile])
+        let original = try Data(contentsOf: store.libraryURL)
+        XCTAssertThrowsError(try store.save([profile, profile]))
+        XCTAssertEqual(try Data(contentsOf: store.libraryURL), original)
+        let invalid = try JSONEncoder().encode([profile, profile])
+        try invalid.write(to: store.libraryURL)
+        XCTAssertThrowsError(try store.load())
+        XCTAssertEqual(try Data(contentsOf: store.libraryURL), invalid)
+    }
+
+    func testInvalidLibraryPathsAreRejectedBeforeSave() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try LibraryStore(rootURL: root)
+        let valid = AppProfile(name: "Test", runtimePath: "/runtime/wine", executablePath: "Program Files/app.exe")
+        try store.save([valid])
+        for path in ["../outside.exe", "/outside.exe", "", "bad\0.exe"] {
+            var invalid = valid; invalid.executablePath = path
+            XCTAssertThrowsError(try store.save([invalid]))
+            XCTAssertEqual(try store.load(), [valid])
+        }
+        var invalid = valid; invalid.runtimePath = "relative/wine"
+        XCTAssertThrowsError(try store.save([invalid]))
+        XCTAssertEqual(try store.load(), [valid])
+    }
+
     func testLibraryLocationDoesNotTouchDiskBeforeBackgroundPreparation() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

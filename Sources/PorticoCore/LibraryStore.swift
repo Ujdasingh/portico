@@ -17,11 +17,30 @@ public struct LibraryStore: Sendable {
     public var libraryURL: URL { rootURL.appendingPathComponent("library.json") }
     public func load() throws -> [AppProfile] {
         guard FileManager.default.fileExists(atPath: libraryURL.path) else { return [] }
-        return try JSONDecoder().decode([AppProfile].self, from: Data(contentsOf: libraryURL))
+        let profiles = try JSONDecoder().decode([AppProfile].self, from: Data(contentsOf: libraryURL))
+        try Self.validate(profiles)
+        return profiles
     }
     public func save(_ profiles: [AppProfile]) throws {
+        try Self.validate(profiles)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(profiles).write(to: libraryURL, options: .atomic)
+    }
+    private static func validate(_ profiles: [AppProfile]) throws {
+        guard Set(profiles.map(\.id)).count == profiles.count else {
+            throw PorticoError.message("The library contains duplicate app identifiers. Restore its metadata from a trusted backup; the existing file has not been changed.")
+        }
+        for profile in profiles {
+            guard profile.runtimePath.hasPrefix("/"), !profile.runtimePath.contains("\0") else {
+                throw PorticoError.message("The library contains an invalid runtime path. The existing file has not been changed.")
+            }
+            if let path = profile.executablePath {
+                guard !path.isEmpty, !path.hasPrefix("/"), !path.contains("\0"),
+                      !path.split(separator: "/").contains("..") else {
+                    throw PorticoError.message("The library contains an invalid executable path. The existing file has not been changed.")
+                }
+            }
+        }
     }
     public func prefixURL(for profile: AppProfile) -> URL {
         rootURL.appendingPathComponent("Apps").appendingPathComponent(profile.id.uuidString).appendingPathComponent("prefix")

@@ -60,6 +60,8 @@ SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.build/module-cache" \
 swift test --disable-sandbox
 ```
 
+Use **Help → Support Report…** to preview and save basic diagnostics without including company data, licence details, app names, paths, or logs. Reports are local and are never uploaded automatically.
+
 Tests cover subprocess arguments, locking, persistence failures, traversal/symlink containment, backup/restore, runtime validation, timeouts, and malformed executable icon resources. Fake runtime scripts verify backend contracts; they do not certify third-party app compatibility. CI runs the same tests and builds the app on macOS.
 
 ## Release status

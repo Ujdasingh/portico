@@ -15,6 +15,7 @@ struct PorticoApp: App {
         .defaultSize(width: 1140, height: 790)
         .commands {
             CommandGroup(replacing: .newItem) { Button("Add Windows App…") { model.showAdd = true }.keyboardShortcut("n") }
+            CommandGroup(replacing: .help) { Button("Support Report…") { model.openSupportReport() } }
             CommandGroup(after: .appSettings) { Button("Runtime Setup…") { model.showRuntime = true }.keyboardShortcut(",") }
         }
     }

@@ -53,3 +53,12 @@ Startup file I/O runs off the main thread, and the environment idle probe reject
 - All 19 automated tests pass; the native release build and ad hoc signature verification pass. Regression tests cover damaged data, damaged manifests, legacy metadata, missing/extra entries, changed links, external-link isolation, and failed initialization.
 
 The working installed application and its Tally environments have not been modified by this source update. Developer ID notarization and the broader release gates remain outstanding.
+
+## 0.2.2 support and metadata hardening — 18 October 2026
+
+- All 22 automated tests pass; native release build and ad hoc signature verification pass.
+- Library load/save rejects duplicate profile identifiers and malformed executable/runtime paths. Failed validation preserves the existing metadata file.
+- Help → Support Report previews an allowlist of versions, architecture, library state and counts. It never includes profile names, identifiers, filesystem paths, notes, licence details, raw errors, or logs. Export is a user-selected local text file; there is no upload. Tests check that private profile fields cannot enter the report.
+- Installed 0.2.2 in Applications, preserving its configured library pointer and a rollback copy of the previous app. No Portico or Tally process was running before replacement.
+- Native UI verification: report displays version 0.2.2/build 4, library ready, three profiles and zero active operations. TallyPrime 5.1 retains its original executable selection and pinned runtime. The library metadata checksum is unchanged after app startup. Tally was not launched, reinstalled, reactivated, or migrated during this update.
+- Developer ID signing/notarization, supported runtime distribution and the remaining accounting/peripheral acceptance gates are still outstanding.
