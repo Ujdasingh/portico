@@ -78,3 +78,13 @@ Wine 11's no-argument uninstaller calls the Programs control panel and then unco
 References: [Wine uninstaller source](https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/programs/uninstaller/main.c), [Wine control source](https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/programs/control/control.c).
 
 All 28 tests pass, including exact control-panel arguments and preservation of actual error exit codes. Release build and signature verification pass. Tests use controlled processes; the agent did not execute a Windows uninstall against the user's environments.
+
+## 0.4.0 native macOS interface — 18 October 2026
+
+- Replaced custom fixed sidebar and page header with NavigationSplitView, a native selectable sidebar, sidebar search and unified title-bar toolbar.
+- Standard macOS button styles replace custom button rendering. Semantic system text/background/accent colors replace fixed light-only colors; the app now follows system appearance. Full dark-mode visual QA remains pending.
+- Real extracted app icons are retained; missing icons use a neutral SF Symbol. Navigation and actions use consistent symbols with text or accessible labels/tooltips. Decorative app artwork is hidden from accessibility to avoid repeating nearby app names.
+- Library overview shows installed apps instead of marketing artwork. App pages prioritize Open, group common tools and backups, and place launch details and removal actions in disclosure groups.
+- All 28 existing automated tests pass. Native release build and ad hoc signature verification pass. Installed in Applications with library metadata unchanged and previous application retained. UI screenshot and interaction validation could not yet run because the Mac became locked; the user was asked to unlock it.
+
+Design references: [Apple sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars), [buttons](https://developer.apple.com/design/human-interface-guidelines/buttons), [SF Symbols](https://developer.apple.com/design/human-interface-guidelines/sf-symbols), [toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars). The implementation uses macOS 14-compatible native controls, not newer-OS-only visual APIs.

@@ -15,7 +15,7 @@ struct CompatibilityView: View {
                 }
                 Spacer()
                 Button("Refresh") { model.openCompatibility() }
-                Button("Done") { dismiss() }.buttonStyle(PrimaryStyle())
+                Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
             }
             if let mac = model.hardware {
                 ScrollView {
@@ -74,11 +74,11 @@ struct RemovedAppsView: View {
                             Text(profile.name); Spacer()
                             Button("Recover") { model.recoverRemovedApp(profile) }
                             Button("Show files") { model.reveal(model.store.prefixURL(for: profile).deletingLastPathComponent()) }
-                        }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: 9))
+                        }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
                     }
                 }
             }.frame(height: 260)
-            HStack { Spacer(); Button("Done") { dismiss() }.buttonStyle(PrimaryStyle()) }
+            HStack { Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
         }.padding(26).frame(width: 620).background(Palette.canvas)
     }
 }

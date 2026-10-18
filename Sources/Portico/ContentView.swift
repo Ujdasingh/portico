@@ -11,20 +11,35 @@ struct ContentView: View {
     @State private var confirmRemove = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar.frame(width: 235)
-            VStack(spacing: 0) {
-                topbar
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        if let message = model.notice {
-                            HStack(alignment: .top) { Image(systemName: "info.circle.fill").foregroundStyle(Palette.teal); Text(message).font(.system(size: 12)).textSelection(.enabled); Spacer(); Button { model.notice = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain) }
-                                .padding(14).background(Palette.teal.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
-                        }
-                        if let profile = model.selected { detail(profile) } else { welcome }
-                    }.padding(32).frame(maxWidth: 1120, alignment: .leading).frame(maxWidth: .infinity)
+        NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 210, ideal: 245, max: 300)
+        } detail: {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    if let message = model.notice {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "info.circle").foregroundStyle(Color.accentColor)
+                            Text(message).font(.callout).textSelection(.enabled)
+                            Spacer()
+                            Button { model.notice = nil } label: { Image(systemName: "xmark") }
+                                .buttonStyle(.plain).help("Dismiss notification").accessibilityLabel("Dismiss notification")
+                        }.padding(14).background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    if let profile = model.selected { detail(profile) } else { welcome }
+                }.padding(28).frame(maxWidth: 900, alignment: .leading).frame(maxWidth: .infinity)
+            }
+            .background(Palette.canvas)
+            .navigationTitle(model.selected?.name ?? "Library")
+            .toolbar {
+                ToolbarItemGroup {
+                    Button { model.showAdd = true } label: { Label("Add Windows app", systemImage: "plus") }.help("Add Windows app (⌘N)")
+                    Button { model.showRuntime = true } label: { Label("Runtime settings", systemImage: "gearshape") }.help("Runtime settings (⌘,)")
+                    if model.selected != nil {
+                        Button { model.openLog() } label: { Label("Session log", systemImage: "doc.text.magnifyingglass") }.help("View session log")
+                    }
                 }
-            }.background(Palette.canvas)
+            }
         }
         .sheet(isPresented: $model.showCompatibility) { CompatibilityView().environmentObject(model) }
         .sheet(isPresented: $model.showRemovedApps) { RemovedAppsView().environmentObject(model) }
@@ -76,160 +91,171 @@ struct ContentView: View {
         }
     }
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage).resizable().scaledToFit().frame(width: 34, height: 34)
-                Text("portico").font(.system(size: 27, weight: .semibold, design: .rounded)).tracking(-0.8).foregroundStyle(.white)
-            }.padding(.top, 46).padding(.horizontal, 23).padding(.bottom, 33)
-            Button { model.selectedID = nil } label: {
-                HStack(spacing: 11) { Image(systemName: "square.grid.2x2"); Text("Overview"); Spacer() }
-                    .font(.system(size: 13, weight: .medium)).padding(12).foregroundStyle(.white.opacity(model.selectedID == nil ? 1 : 0.65))
-                    .background(model.selectedID == nil ? Color.white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 9))
-            }.buttonStyle(.plain).padding(.horizontal, 12)
-            Button { model.openCompatibility() } label: {
-                Label("This Mac & compatibility", systemImage: "laptopcomputer").font(.system(size: 12)).foregroundStyle(.white.opacity(0.85)).padding(12)
-            }.buttonStyle(.plain).padding(.horizontal, 12)
-            Button { model.showRemovedApps = true } label: {
-                Label("Removed apps (\(model.removedProfiles.count))", systemImage: "archivebox").font(.system(size: 12)).foregroundStyle(.white.opacity(0.65)).padding(12)
-            }.buttonStyle(.plain).padding(.horizontal, 12)
-            HStack { Text("YOUR APPS").font(.system(size: 10, weight: .semibold)).tracking(1.7); Spacer(); Text("\(model.activeProfiles.count)").font(.system(size: 10, weight: .medium)) }.foregroundStyle(.white.opacity(0.35)).padding(.horizontal, 24).padding(.top, 29).padding(.bottom, 12)
-            if !model.activeProfiles.isEmpty {
-                HStack { Image(systemName: "magnifyingglass"); TextField("Find an app", text: $search, prompt: Text("Find an app").foregroundColor(.white.opacity(0.5))).textFieldStyle(.plain).foregroundStyle(.white) }.font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).padding(9).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 7)).padding(.horizontal, 18).padding(.bottom, 9)
-            }
-            ScrollView {
-                VStack(spacing: 5) {
+        VStack(spacing: 0) {
+            List(selection: $model.selectedID) {
+                Section("Library") {
+                    Button { model.selectedID = nil } label: { Label("All Apps", systemImage: "square.grid.2x2") }
+                        .buttonStyle(.plain)
+                    Button { model.openCompatibility() } label: { Label("This Mac & Compatibility", systemImage: "laptopcomputer") }.buttonStyle(.plain)
+                    Button { model.showRemovedApps = true } label: {
+                        Label("Removed Apps", systemImage: "archivebox").badge(model.removedProfiles.count)
+                    }.buttonStyle(.plain)
+                }
+                Section("Windows Apps") {
                     ForEach(model.activeProfiles.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
-                        Button { model.selectedID = profile.id } label: {
-                            HStack(spacing: 10) {
-                                AppTile(name: profile.name, size: 33, executable: try? model.store.executableURL(for: profile))
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(profile.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.white).lineLimit(1)
-                                    Text(model.operations[profile.id] != nil ? "In use" : profile.executablePath == nil ? "Finish setup" : "Installed").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
-                                }
-                                Spacer(minLength: 0)
-                                if model.operations[profile.id] != nil { Circle().fill(Color.mint).frame(width: 5, height: 5) }
-                            }.padding(10).background(model.selectedID == profile.id ? .white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 9))
-                        }.buttonStyle(.plain)
+                        HStack(spacing: 10) {
+                            AppTile(name: profile.name, size: 28, executable: try? model.store.executableURL(for: profile))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(profile.name).lineLimit(1)
+                                Text(model.operations[profile.id] != nil ? "In use" : profile.executablePath == nil ? "Setup needed" : "Installed")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }.padding(.vertical, 4).tag(profile.id)
                     }
-                    if model.activeProfiles.isEmpty { Text("Your Windows apps will\nappear here.").font(.system(size: 12)).foregroundStyle(.white.opacity(0.3)).lineSpacing(5).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10) }
-                }.padding(.horizontal, 12)
-            }
-            Button { model.showAdd = true } label: { Label("Add Windows app", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(PrimaryStyle()).padding(18)
-            Divider().overlay(.white.opacity(0.08))
-            Button { model.showRuntime = true } label: {
-                HStack(spacing: 10) { Image(systemName: "cpu").font(.system(size: 17)); VStack(alignment: .leading, spacing: 4) { Text("Runtime setup").font(.system(size: 12, weight: .medium)); Text(model.runtimes.isEmpty ? "Connect Wine to get started" : "\(model.runtimes.count) runtime\(model.runtimes.count == 1 ? "" : "s") available").font(.system(size: 10)).foregroundStyle(.white.opacity(0.38)) }; Spacer(); Image(systemName: "chevron.right").font(.system(size: 9)) }.foregroundStyle(.white.opacity(0.8)).padding(22)
-            }.buttonStyle(.plain)
-        }.background(Palette.navy)
-    }
-    private var topbar: some View {
-        HStack {
-            Text(model.selected?.name ?? "Your workspace").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.ink)
-            Spacer()
-            StatusPill(title: "Runs on this Mac", color: Palette.muted)
-            Rectangle().fill(Palette.line).frame(width: 1, height: 18).padding(.horizontal, 8)
-            Button { model.showRuntime = true } label: { Image(systemName: "slider.horizontal.3").font(.system(size: 15)).foregroundStyle(Palette.muted) }.buttonStyle(.plain).help("Runtime setup")
-        }.padding(.horizontal, 32).frame(height: 62).background(.white.opacity(0.75)).overlay(alignment: .bottom) { Rectangle().fill(Palette.line).frame(height: 1) }
+                    if model.activeProfiles.isEmpty { Text("Add an app to get started.").font(.callout).foregroundStyle(.secondary) }
+                    else if !search.isEmpty && !model.activeProfiles.contains(where: { $0.name.localizedCaseInsensitiveContains(search) }) {
+                        Text("No matching apps").foregroundStyle(.secondary)
+                    }
+                }
+            }.listStyle(.sidebar)
+            .searchable(text: $search, placement: .sidebar, prompt: "Search apps")
+            Divider()
+            HStack {
+                Label("\(model.activeProfiles.count) apps", systemImage: "square.stack").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button { model.showAdd = true } label: { Image(systemName: "plus") }.buttonStyle(.borderless)
+                    .help("Add Windows app").accessibilityLabel("Add Windows app")
+            }.padding(14)
+        }.navigationTitle("Portico")
     }
     private var welcome: some View {
-        VStack(alignment: .leading, spacing: 27) {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 17) {
-                    Text("A LITTLE LESS FRICTION").font(.system(size: 10, weight: .semibold)).tracking(2.1).foregroundStyle(Palette.indigo)
-                    (Text("Windows apps.\n").foregroundStyle(Palette.ink) + Text("At home on your Mac.").foregroundStyle(Palette.indigo)).font(.system(size: 34, weight: .semibold, design: .rounded)).tracking(-1.0).fixedSize(horizontal: false, vertical: true)
-                    Text("A local workspace for TallyPrime and the Windows tools your business runs on.").font(.system(size: 14)).foregroundStyle(Palette.muted).lineSpacing(5).frame(maxWidth: 380, alignment: .leading)
-                    HStack(spacing: 10) {
-                        Button { if model.runtimes.isEmpty { model.showRuntime = true } else { model.showAdd = true } } label: { Label(model.runtimes.isEmpty ? "Set up Portico" : "Add your first app", systemImage: "plus") }.buttonStyle(PrimaryStyle())
-                        Link("Get TallyPrime ↗", destination: URL(string: "https://tallysolutions.com/download/")!).font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.muted)
-                    }.padding(.top, 3)
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                WindowArtwork()
-            }.padding(.vertical, 14)
-            HStack(alignment: .top, spacing: 14) {
-                FeatureCard(icon: "laptopcomputer", title: "Keep work local", text: "Apps and files stay on your Mac. Work offline when your app and licence allow it.")
-                FeatureCard(icon: "square.stack.3d.up", title: "Give each app its space", text: "Separate Windows environments keep each app's settings and dependencies together.")
-                FeatureCard(icon: "clock.arrow.circlepath", title: "Have a way back", text: "Back up an environment before changes, then restore it if an update goes wrong.")
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your Apps").font(.largeTitle.weight(.bold))
+                Text("Open a Windows app or add one to your library.").foregroundStyle(.secondary)
             }
-            Surface {
-                HStack(alignment: .top, spacing: 18) {
-                    AppTile(name: "TallyPrime", size: 49)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack { Text("Start with TallyPrime").font(.system(size: 16, weight: .semibold)); StatusPill(title: "Your first workflow", color: Palette.indigo) }
-                        Text("Use the official installer and a copy of your company data. Verify printing, exports and add-ons before moving your daily accounts.").font(.system(size: 12)).foregroundStyle(Palette.muted).lineSpacing(4)
-                        Text("Portico manages Wine. It does not guarantee every Windows app or device will work.").font(.system(size: 11)).foregroundStyle(Palette.muted).padding(.top, 3)
+            if model.activeProfiles.isEmpty {
+                ContentUnavailableView {
+                    Label("No Windows Apps", systemImage: "square.stack.3d.up")
+                } description: { Text("Add an official Windows installer or a portable app to get started.") }
+                actions: { Button("Add Windows App…") { model.showAdd = true }.buttonStyle(.borderedProminent) }
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 16)], spacing: 16) {
+                    ForEach(model.activeProfiles) { profile in
+                        Button { model.selectedID = profile.id } label: {
+                            VStack(alignment: .leading, spacing: 14) {
+                                AppTile(name: profile.name, size: 48, executable: try? model.store.executableURL(for: profile))
+                                Text(profile.name).font(.headline).foregroundStyle(.primary)
+                                Text(model.operations[profile.id] != nil ? "In use" : "View app").font(.callout).foregroundStyle(.secondary)
+                            }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+                                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                        }.buttonStyle(.plain)
                     }
                 }
             }
-            HStack { Image(systemName: "externaldrive"); Text("Local library"); Spacer(); Button("Show in Finder") { model.reveal(model.store.rootURL) }.buttonStyle(.plain).foregroundStyle(Palette.indigo) }.font(.system(size: 11)).foregroundStyle(Palette.muted)
+            GroupBox {
+                HStack(spacing: 12) {
+                    Image(systemName: "laptopcomputer").font(.title2).foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Find the right fit for your Mac").font(.headline)
+                        Text("View hardware details and app compatibility guidance.").font(.callout).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Explore…") { model.openCompatibility() }
+                }.padding(8)
+            }
+            HStack { Label("Library stored on this Mac", systemImage: "internaldrive").foregroundStyle(.secondary); Spacer(); Button("Show in Finder") { model.reveal(model.store.rootURL) } }.font(.callout)
         }
     }
     private func detail(_ profile: AppProfile) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 24) {
             HStack(spacing: 18) {
-                AppTile(name: profile.name, size: 73, executable: try? model.store.executableURL(for: profile))
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(profile.name).font(.system(size: 29, weight: .semibold, design: .rounded)).foregroundStyle(Palette.ink)
-                    StatusPill(title: model.operations[profile.id] != nil ? "In use" : profile.executablePath == nil ? "Setup needed" : "Installed", color: profile.executablePath == nil ? .orange : Palette.teal)
+                AppTile(name: profile.name, size: 64, executable: try? model.store.executableURL(for: profile))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(profile.name).font(.largeTitle.weight(.bold))
+                    Label(model.selectedBusy ? "In use" : profile.executablePath == nil ? "Setup needed" : "Installed",
+                          systemImage: model.selectedBusy ? "circle.dotted" : profile.executablePath == nil ? "exclamationmark.circle" : "checkmark.circle")
+                        .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if model.selectedBusy { if model.stoppable.contains(profile.id) { Button("Stop app") { confirmStop = true }.buttonStyle(SecondaryStyle()) } }
-                else { Button { model.launch(profile) } label: { Label("Launch app", systemImage: "play.fill") }.buttonStyle(PrimaryStyle()).disabled(profile.executablePath == nil) }
-            }.padding(.vertical, 6)
+                if model.selectedBusy {
+                    if model.stoppable.contains(profile.id) { Button("Stop…", role: .destructive) { confirmStop = true }.buttonStyle(.bordered) }
+                } else {
+                    Button { model.launch(profile) } label: { Label("Open", systemImage: "play.fill") }
+                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(profile.executablePath == nil)
+                }
+            }.padding(.vertical, 8)
             if let operation = model.operations[profile.id] {
-                HStack(spacing: 12) { ProgressView().controlSize(.small); Text(operation).font(.system(size: 13)); Spacer() }.padding(17).background(Palette.indigo.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                HStack(spacing: 12) { ProgressView().controlSize(.small); Text(operation).font(.callout); Spacer() }
+                    .padding(14).background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
             }
             Surface {
-                VStack(alignment: .leading, spacing: 17) {
-                    Text("Launch settings").font(.system(size: 15, weight: .semibold))
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text("WINDOWS EXECUTABLE").font(.system(size: 9, weight: .semibold)).tracking(1.5).foregroundStyle(Palette.muted)
-                            if !model.executables.isEmpty {
+                VStack(alignment: .leading, spacing: 16) {
+                    Label("App Tools", systemImage: "wrench.and.screwdriver").font(.headline)
+                    HStack(spacing: 12) {
+                        Button { model.install(profile) } label: { Label("Run Installer…", systemImage: "square.and.arrow.down") }.disabled(model.selectedBusy)
+                        Button { model.reveal(model.store.prefixURL(for: profile).appendingPathComponent("drive_c")) } label: { Label("Open C: Drive", systemImage: "folder") }
+                        Button { model.runTool(profile, tool: "winecfg") } label: { Label("Windows Settings", systemImage: "gearshape") }.disabled(model.selectedBusy)
+                    }.buttonStyle(.bordered)
+                    Divider()
+                    DisclosureGroup("Launch Settings") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
                                 Picker("Program", selection: Binding(get: { profile.executablePath ?? "" }, set: { model.chooseExecutable($0) })) {
-                                    Text("Choose the installed app…").tag("")
+                                    Text("Choose an executable…").tag("")
                                     if let existing = profile.executablePath, !model.executables.contains(where: { $0.relativePath == existing }) { Text(existing).tag(existing) }
                                     ForEach(model.executables) { Text($0.relativePath).tag($0.relativePath) }
-                                }.labelsHidden().frame(maxWidth: .infinity).disabled(model.selectedBusy)
-                            } else { Text(profile.executablePath ?? "Install the app, then select its executable.").font(.system(size: 12)).foregroundStyle(Palette.muted).textSelection(.enabled) }
-                        }
-                        Spacer()
-                        Button("Browse…") { model.browseExecutable(profile) }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
-                    }
-                    Divider()
-                    HStack { Text("Pinned runtime").font(.system(size: 12, weight: .medium)); Spacer(); Text(URL(fileURLWithPath: profile.runtimePath).pathComponents.first(where: { $0.hasSuffix(".app") }) ?? "Wine").font(.system(size: 12)).foregroundStyle(Palette.muted) }
-                    Text("This app keeps its chosen runtime. Installing another engine does not switch it automatically.").font(.system(size: 11)).foregroundStyle(Palette.muted)
+                                }.disabled(model.selectedBusy)
+                                Button("Browse…") { model.browseExecutable(profile) }.disabled(model.selectedBusy)
+                            }
+                            LabeledContent("Runtime", value: URL(fileURLWithPath: profile.runtimePath).pathComponents.first(where: { $0.hasSuffix(".app") }) ?? "Wine")
+                            Text("This app keeps its original runtime when you add another engine.").font(.caption).foregroundStyle(.secondary)
+                        }.padding(.top, 12)
+                    }.font(.callout)
                 }
             }
-            HStack(spacing: 12) {
-                Button { model.install(profile) } label: { Label("Run installer", systemImage: "square.and.arrow.down") }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
-                Button { model.reveal(model.store.prefixURL(for: profile).appendingPathComponent("drive_c")) } label: { Label("Open C: drive", systemImage: "folder") }.buttonStyle(SecondaryStyle())
-                Button { model.runTool(profile, tool: "winecfg") } label: { Label("Windows settings", systemImage: "gearshape") }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
-                Spacer()
-                Button { model.openLog() } label: { Label("Session log", systemImage: "doc.text.magnifyingglass") }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Palette.indigo)
-            }
             Surface {
-                VStack(alignment: .leading, spacing: 17) {
-                    HStack { VStack(alignment: .leading, spacing: 6) { Text("Backups & recovery").font(.system(size: 15, weight: .semibold)); Text("Close the Windows app before backing up. External folders are not included.").font(.system(size: 11)).foregroundStyle(Palette.muted) }; Spacer(); Button("Create backup") { model.backup(profile) }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy) }
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Label("Backups", systemImage: "clock.arrow.circlepath").font(.headline)
+                        Spacer()
+                        Button { model.backup(profile) } label: { Label("Create Backup", systemImage: "plus") }.disabled(model.selectedBusy)
+                    }
+                    Text("Close the Windows app first. Files outside its environment need a separate backup.").font(.callout).foregroundStyle(.secondary)
                     if model.backups.isEmpty {
-                        HStack(spacing: 11) { Image(systemName: "clock.arrow.circlepath").font(.system(size: 24)).foregroundStyle(Palette.line); Text("No backups yet. Save a known working setup before making changes.").font(.system(size: 12)).foregroundStyle(Palette.muted) }.padding(.vertical, 14)
+                        HStack(spacing: 12) {
+                            Image(systemName: "archivebox").font(.title2).foregroundStyle(.tertiary)
+                            Text("No backups yet").foregroundStyle(.secondary)
+                        }.padding(.vertical, 14)
                     } else {
                         ForEach(model.backups.prefix(5)) { backup in
-                            HStack { Image(systemName: "archivebox").foregroundStyle(Palette.teal); Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 12)); Spacer(); Button(backup.integritySHA256 == nil ? "Legacy backup" : "Restore") { confirmRestore = backup }.disabled(model.selectedBusy || backup.integritySHA256 == nil).help(backup.integritySHA256 == nil ? "This older backup has no integrity record. Its files are preserved for manual recovery." : "Verify and restore this backup") }.padding(.vertical, 5)
+                            HStack {
+                                Image(systemName: "archivebox").foregroundStyle(.secondary)
+                                Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                Spacer()
+                                Button(backup.integritySHA256 == nil ? "Legacy Backup" : "Restore…") { confirmRestore = backup }
+                                    .disabled(model.selectedBusy || backup.integritySHA256 == nil)
+                                    .help(backup.integritySHA256 == nil ? "Preserved for manual recovery; no integrity record is available." : "Verify and restore this backup")
+                            }.font(.callout)
                         }
-                        Button("Show all backup files") { model.reveal(model.store.backupDirectory(for: profile)) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.indigo)
+                        Button("Show All Backups in Finder") { model.reveal(model.store.backupDirectory(for: profile)) }.font(.callout)
                     }
                 }
             }
             Surface {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Manage app").font(.system(size: 15, weight: .semibold))
-                    Text("Uninstall a Windows program, or hide this entry while keeping its files for recovery.").font(.system(size: 12)).foregroundStyle(Palette.muted)
-                    HStack {
-                        Button("Uninstall program…") { confirmUninstall = true }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
-                        Button("Remove from library…") { confirmRemove = true }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
-                    }
-                }
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Uninstall a program, or hide this library entry while retaining its files.").font(.callout).foregroundStyle(.secondary)
+                        HStack {
+                            Button("Uninstall Program…", role: .destructive) { confirmUninstall = true }.disabled(model.selectedBusy)
+                            Button("Remove from Library…", role: .destructive) { confirmRemove = true }.disabled(model.selectedBusy)
+                        }.buttonStyle(.bordered)
+                    }.padding(.top, 12)
+                } label: { Label("Manage App", systemImage: "ellipsis.circle").font(.headline) }
             }
-            if !profile.notes.isEmpty { HStack(alignment: .top, spacing: 9) { Image(systemName: "info.circle"); Text(profile.notes).lineSpacing(4) }.font(.system(size: 12)).foregroundStyle(Palette.muted).padding(.horizontal, 3) }
+            if !profile.notes.isEmpty {
+                Label(profile.notes, systemImage: "info.circle").font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

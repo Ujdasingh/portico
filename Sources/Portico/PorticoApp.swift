@@ -7,12 +7,12 @@ struct PorticoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     var body: some Scene {
         WindowGroup("Portico") {
-            ContentView().environmentObject(model).frame(minWidth: 980, minHeight: 700)
-                .preferredColorScheme(.light)
+            ContentView().environmentObject(model).frame(minWidth: 900, minHeight: 650)
                 .onAppear { appDelegate.model = model; NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true) }
         }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1140, height: 790)
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified)
+        .defaultSize(width: 1120, height: 780)
         .commands {
             CommandGroup(replacing: .newItem) { Button("Add Windows App…") { model.showAdd = true }.keyboardShortcut("n") }
             CommandGroup(replacing: .help) { Button("Support Report…") { model.openSupportReport() } }
