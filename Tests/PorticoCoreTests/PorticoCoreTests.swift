@@ -149,19 +149,30 @@ final class PorticoCoreTests: XCTestCase {
         let result = try await service.uninstall(profile: app)
         XCTAssertEqual(result.exitCode, 0)
         let output = try String(contentsOf: result.logURL)
-        XCTAssertTrue(output.contains("ARG=uninstaller"))
+        XCTAssertTrue(output.contains("ARG=control.exe"))
         XCTAssertTrue(output.contains("PREFIX=" + prefix.path))
         let snapshots = try await service.snapshots(profile: app)
         XCTAssertEqual(snapshots.count, 1)
         XCTAssertNotNil(snapshots.first?.integritySHA256)
         XCTAssertEqual(try String(contentsOf: untouched), "keep")
     }
+    func testUninstallUsesControlAppletAndStillReportsRealFailure() async throws {
+        let app = profile(); _ = try prepare(app)
+        try writeExecutable("#!/bin/sh\n[ \"$1\" = control.exe ] && [ \"$2\" = appwiz.cpl ] || exit 82\nexit 0\n", to: runtime)
+        let service = WineService(store: store)
+        let success = try await service.uninstall(profile: app)
+        XCTAssertEqual(success.exitCode, 0)
+        try writeExecutable("#!/bin/sh\nexit 42\n", to: runtime)
+        let failure = try await service.uninstall(profile: app)
+        XCTAssertEqual(failure.exitCode, 42)
+        XCTAssertNotNil(failure.diagnostic)
+    }
     func testUninstallerCannotRunWhenBackupCannotBeCreated() async throws {
         let app = profile(); let service = WineService(store: store)
         do { _ = try await service.uninstall(profile: app); XCTFail("Needs a verified backup first") }
         catch { XCTAssertTrue(error.localizedDescription.contains("Install an application")) }
         let logs = (try? FileManager.default.contentsOfDirectory(at: store.logDirectory(for: app), includingPropertiesForKeys: nil)) ?? []
-        XCTAssertFalse(logs.contains { WineService.tail($0).contains("ARG=uninstaller") })
+        XCTAssertFalse(logs.contains { WineService.tail($0).contains("ARG=control.exe") })
     }
     func testRemovalProbeRefusesFailedServerWithoutChangingMetadata() async throws {
         let app = profile(); _ = try prepare(app); try store.save([app])

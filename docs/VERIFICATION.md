@@ -70,3 +70,11 @@ The working installed application and its Tally environments have not been modif
 - Native UI shows Uninstall program and Remove from library, Removed apps navigation, and the new compatibility screen. The uninstall confirmation was inspected and cancelled. No app was uninstalled or hidden during verification.
 - Hardware UI correctly detected the test Mac as Apple M1 Pro, 16 GB RAM, macOS 15.8.1, M1 Pro Metal GPU, approximately 58 GB free library-volume storage. Business and Games tabs and their references were inspected; screenshot layout verified.
 - No Tally environment, runtime or licence configuration was changed. Native Mac recommendations and experimental Windows/game guidance are not compatibility guarantees.
+
+## 0.3.1 uninstall launcher correction — 18 October 2026
+
+Wine 11's no-argument uninstaller calls the Programs control panel and then unconditionally returns 1. Portico incorrectly interpreted this as failure. The launcher now uses `control.exe appwiz.cpl`, which opens the same applet with normal completion status. Real nonzero launcher/server failures remain errors. Panel completion is not proof that a program was removed.
+
+References: [Wine uninstaller source](https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/programs/uninstaller/main.c), [Wine control source](https://raw.githubusercontent.com/wine-mirror/wine/wine-11.0/programs/control/control.c).
+
+All 28 tests pass, including exact control-panel arguments and preservation of actual error exit codes. Release build and signature verification pass. Tests use controlled processes; the agent did not execute a Windows uninstall against the user's environments.

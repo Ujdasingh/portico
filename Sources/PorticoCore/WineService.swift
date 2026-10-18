@@ -224,7 +224,9 @@ public actor WineService {
         try await ensureIdle(profile, log: log)
         // Refuse to open an uninstaller unless a verified recovery point exists.
         _ = try await makeSnapshot(profile, log: log)
-        let code = try await run(profile, arguments: ["uninstaller"], log: log, directory: store.prefixURL(for: profile))
+        // Wine 11 uninstaller returns 1 after its GUI closes normally.
+        // control opens the same applet without that unconditional failure status.
+        let code = try await run(profile, arguments: ["control.exe", "appwiz.cpl"], log: log, directory: store.prefixURL(for: profile))
         let waitCode = try await server(profile, arguments: ["-w"], log: log)
         return result(code: code == 0 ? waitCode : code, log: log)
     }
