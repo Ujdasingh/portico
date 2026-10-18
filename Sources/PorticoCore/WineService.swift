@@ -128,7 +128,9 @@ public actor WineService {
         try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
         let code = try await run(profile, arguments: ["wineboot", "--init"], log: log, timeout: 120)
         guard code == 0 else { throw PorticoError.message(result(code: code, log: log).diagnostic ?? "Wine could not create the Windows environment.") }
-        _ = try await server(profile, arguments: ["-w"], log: log, timeout: 120)
+        guard try await server(profile, arguments: ["-w"], log: log, timeout: 120) == 0 else {
+            throw PorticoError.message("Wine initialization did not finish successfully. Try installing again.")
+        }
         try Data("Wine initialization completed\n".utf8).write(to: prefix.appendingPathComponent(".portico-ready"), options: .atomic)
     }
     private func result(code: Int32, log: URL) -> RunResult {
@@ -241,12 +243,20 @@ public actor WineService {
     private func makeSnapshot(_ profile: AppProfile, log: URL) async throws -> PrefixSnapshot {
         let source = store.prefixURL(for: profile)
         guard FileManager.default.fileExists(atPath: source.appendingPathComponent("system.reg").path) else { throw PorticoError.message("Install an application before creating a backup.") }
-        let snapshot = PrefixSnapshot(profileID: profile.id, runtimePath: profile.runtimePath)
+        var snapshot = PrefixSnapshot(profileID: profile.id, runtimePath: profile.runtimePath)
+        let integrity = try SnapshotIntegrity.capture(source)
         let destination = store.snapshotURL(for: snapshot)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        var completed = false
+        defer { if !completed { try? FileManager.default.removeItem(at: destination) } }
         let code = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/ditto"), arguments: [source.path, destination.appendingPathComponent("prefix").path], log: log)
         guard code == 0 else { throw PorticoError.message("Backup could not finish. The original environment is unchanged.") }
+        try integrity.verify(destination.appendingPathComponent("prefix"))
+        let manifest = destination.appendingPathComponent("integrity.json")
+        try JSONEncoder().encode(integrity).write(to: manifest, options: .atomic)
+        snapshot.integritySHA256 = try EngineInstaller.digest(of: manifest)
         try JSONEncoder().encode(snapshot).write(to: destination.appendingPathComponent("snapshot.json"), options: .atomic)
+        completed = true
         return snapshot
     }
     public func restore(profile: AppProfile, snapshot: PrefixSnapshot) async throws -> URL {
@@ -255,12 +265,23 @@ public actor WineService {
         let operationLock = try lock(profile); defer { busy.remove(profile.id); withExtendedLifetime(operationLock) {} }
         let log = logURL(profile, action: "restore")
         try await ensureIdle(profile, log: log)
+        guard let expectedDigest = snapshot.integritySHA256 else {
+            throw PorticoError.message("This older backup has no integrity record. It is preserved for manual recovery, but cannot be restored automatically. Create a new verified backup from a known working environment.")
+        }
+        let manifest = store.snapshotURL(for: snapshot).appendingPathComponent("integrity.json")
+        guard try EngineInstaller.digest(of: manifest) == expectedDigest else {
+            throw PorticoError.message("The backup integrity record is damaged. Nothing was changed.")
+        }
+        let integrity = try JSONDecoder().decode(SnapshotIntegrity.self, from: Data(contentsOf: manifest))
         let source = store.snapshotURL(for: snapshot).appendingPathComponent("prefix")
+        try integrity.verify(source)
         guard FileManager.default.fileExists(atPath: source.appendingPathComponent("system.reg").path) else { throw PorticoError.message("The backup is incomplete. Nothing was changed.") }
         let destination = store.prefixURL(for: profile)
         let staging = destination.deletingLastPathComponent().appendingPathComponent("restore-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: staging) }
         let code = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/ditto"), arguments: [source.path, staging.path], log: log)
         guard code == 0 else { throw PorticoError.message("Could not prepare the restore. The current environment is unchanged.") }
+        try integrity.verify(staging)
         let rollback = destination.deletingLastPathComponent().appendingPathComponent("before-restore-\(UUID().uuidString)")
         let existed = FileManager.default.fileExists(atPath: destination.path)
         if existed { try FileManager.default.moveItem(at: destination, to: rollback) }

@@ -92,6 +92,56 @@ final class PorticoCoreTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: data), "before")
         XCTAssertEqual(try String(contentsOf: rollback.appendingPathComponent("drive_c/accounts.txt")), "after")
     }
+    func testDamagedBackupCannotReplaceWorkingData() async throws {
+        let app = profile(); let prefix = try prepare(app); let service = WineService(store: store)
+        let live = prefix.appendingPathComponent("drive_c/accounts.txt")
+        try Data("saved".utf8).write(to: live)
+        let snapshot = try await service.snapshot(profile: app)
+        try Data("working".utf8).write(to: live)
+        let backedUp = store.snapshotURL(for: snapshot).appendingPathComponent("prefix/drive_c/accounts.txt")
+        try Data("broken".utf8).write(to: backedUp)
+        do { _ = try await service.restore(profile: app, snapshot: snapshot); XCTFail("Must reject corruption") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("integrity")) }
+        XCTAssertEqual(try String(contentsOf: live), "working")
+    }
+    func testDamagedManifestAndLegacySnapshotAreRefused() async throws {
+        let app = profile(); let prefix = try prepare(app); let service = WineService(store: store)
+        let snapshot = try await service.snapshot(profile: app)
+        try Data("{}".utf8).write(to: store.snapshotURL(for: snapshot).appendingPathComponent("integrity.json"))
+        do { _ = try await service.restore(profile: app, snapshot: snapshot); XCTFail("Must reject manifest damage") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("integrity")) }
+        var legacy = snapshot; legacy.integritySHA256 = nil
+        do { _ = try await service.restore(profile: app, snapshot: legacy); XCTFail("Must reject unverified restore") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("older backup")) }
+        XCTAssertEqual(try String(contentsOf: prefix.appendingPathComponent("system.reg")), "registry")
+        let decoded = try JSONDecoder().decode(PrefixSnapshot.self, from: JSONEncoder().encode(legacy))
+        XCTAssertNil(decoded.integritySHA256)
+    }
+    func testIntegrityDetectsMissingExtraAndRedirectedLinksWithoutFollowingTargets() throws {
+        let app = profile(); let prefix = try prepare(app)
+        let external = root.appendingPathComponent("external.txt")
+        try Data("external".utf8).write(to: external)
+        let link = prefix.appendingPathComponent("external-link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: external)
+        let integrity = try SnapshotIntegrity.capture(prefix)
+        try Data("external changes are not backed up".utf8).write(to: external)
+        XCTAssertNoThrow(try integrity.verify(prefix))
+        let extra = prefix.appendingPathComponent("extra")
+        try Data().write(to: extra)
+        XCTAssertThrowsError(try integrity.verify(prefix))
+        try FileManager.default.removeItem(at: extra)
+        try FileManager.default.removeItem(at: link)
+        XCTAssertThrowsError(try integrity.verify(prefix))
+        try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: "/missing-target")
+        XCTAssertThrowsError(try integrity.verify(prefix))
+    }
+    func testFailedInitializationDoesNotMarkEnvironmentReady() async throws {
+        let app = profile()
+        try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))
+        do { _ = try await WineService(store: store).runTool(profile: app, tool: "notepad"); XCTFail("Must reject failed initialization") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("initialization")) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.prefixURL(for: app).appendingPathComponent(".portico-ready").path))
+    }
     func testSnapshotRefusesFailedWineserverProbe() async throws {
         let app = profile(); _ = try prepare(app)
         try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))

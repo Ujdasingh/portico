@@ -194,7 +194,7 @@ struct ContentView: View {
                         HStack(spacing: 11) { Image(systemName: "clock.arrow.circlepath").font(.system(size: 24)).foregroundStyle(Palette.line); Text("No backups yet. Save a known working setup before making changes.").font(.system(size: 12)).foregroundStyle(Palette.muted) }.padding(.vertical, 14)
                     } else {
                         ForEach(model.backups.prefix(5)) { backup in
-                            HStack { Image(systemName: "archivebox").foregroundStyle(Palette.teal); Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 12)); Spacer(); Button("Restore") { confirmRestore = backup }.disabled(model.selectedBusy) }.padding(.vertical, 5)
+                            HStack { Image(systemName: "archivebox").foregroundStyle(Palette.teal); Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 12)); Spacer(); Button(backup.integritySHA256 == nil ? "Legacy backup" : "Restore") { confirmRestore = backup }.disabled(model.selectedBusy || backup.integritySHA256 == nil).help(backup.integritySHA256 == nil ? "This older backup has no integrity record. Its files are preserved for manual recovery." : "Verify and restore this backup") }.padding(.vertical, 5)
                         }
                         Button("Show all backup files") { model.reveal(model.store.backupDirectory(for: profile)) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.indigo)
                     }

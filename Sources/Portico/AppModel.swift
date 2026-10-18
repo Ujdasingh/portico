@@ -181,7 +181,7 @@ final class AppModel: ObservableObject {
     func backup(_ profile: AppProfile) {
         perform(profile, status: "Creating backup…") {
             _ = try await self.service.snapshot(profile: profile)
-            self.notice = "Windows environment backed up. Files stored outside it need their own backup."
+            self.notice = "Windows environment backed up and integrity verified. Files stored outside it need their own backup."
         }
     }
     func restore(_ profile: AppProfile, snapshot: PrefixSnapshot) {

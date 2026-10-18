@@ -11,7 +11,7 @@ Portico manages installation, launch settings, separate Windows environments, lo
 - Separate per-app Wine prefixes and remembered runtime paths.
 - Checksum-verified download of a pinned Wine macOS release.
 - Correct working directories and argument-array subprocess launching.
-- Environment snapshots before installer changes, with staged restore and a preserved previous copy.
+- Environment snapshots before installer changes, with SHA-256 integrity verification, staged restore, and a preserved previous copy.
 - Per-environment operation locks and a library lifetime lock to prevent conflicting app instances.
 - Reconnection to Windows sessions left running after Portico exits.
 - Local session logs with readable diagnostics and scoped process shutdown.
@@ -44,7 +44,7 @@ The default library is `~/Library/Application Support/Portico`. It contains app 
 
 A marked `Portico Data` folder beside the app enables portable mode. The `.portable-library` marker must be present. `PORTICO_HOME` overrides the location for development. A locally configured installation can use the `PorticoLibraryPath` Info.plist key; public builds do not contain a personal library path. Runtime paths are currently absolute, so moving a prepared library requires updating those paths.
 
-Backups include the prefix only. External folders, network shares, and symlink targets need independent backups. There is no automatic retention policy. Restores preserve the previous prefix in a `before-restore-*` folder.
+Backups include the prefix only. External folders, network shares, and symlink targets need independent backups. New backups record file hashes and symbolic-link destinations, verify the copied environment, and verify again before and after staging a restore. These checks detect accidental damage, not malicious replacement of both data and metadata. Older backups without integrity records remain on disk for manual recovery; automatic restore is disabled for them. There is no automatic retention policy. Restores preserve the previous prefix in a `before-restore-*` folder.
 
 ## TallyPrime
 

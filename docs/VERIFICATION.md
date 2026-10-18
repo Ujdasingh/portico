@@ -43,3 +43,13 @@ Do not infer that a startup success validates the rest of these steps.
 - Developer ID signing and notarization remain unverified because release credentials have not been supplied.
 
 Startup file I/O runs off the main thread, and the environment idle probe rejects a nonzero wineserver result before snapshotting.
+
+## 0.2.1 hardening — 18 October 2026
+
+- The user reports that Tally is working in their existing setup. This is a user-reported result; the exact accounting, printing, licence, and offline workflows exercised have not been recorded.
+- Backups now hash regular file contents, record directories and symbolic-link destinations without following external targets, and verify the copied tree before publishing snapshot metadata.
+- Restore verifies the manifest digest, original backup, and staged copy before moving the current environment. Older snapshots remain preserved for manual recovery but cannot be restored automatically without integrity records.
+- Failed backup and restore staging copies are cleaned up. Wine initialization no longer marks a prefix ready if the final wineserver wait fails.
+- All 19 automated tests pass; the native release build and ad hoc signature verification pass. Regression tests cover damaged data, damaged manifests, legacy metadata, missing/extra entries, changed links, external-link isolation, and failed initialization.
+
+The working installed application and its Tally environments have not been modified by this source update. Developer ID notarization and the broader release gates remain outstanding.

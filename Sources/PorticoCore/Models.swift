@@ -30,6 +30,7 @@ public struct WindowsExecutable: Identifiable, Hashable, Sendable {
 }
 
 public struct PrefixSnapshot: Codable, Identifiable, Sendable {
+    public var integritySHA256: String?
     public var id: UUID
     public var profileID: UUID
     public var createdAt: Date

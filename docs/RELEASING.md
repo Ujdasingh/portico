@@ -2,12 +2,13 @@
 
 ## Current status
 
-Version 0.2.0 is a source-available development preview with copyright reserved.
+Version 0.2.1 is a source-available development preview with copyright reserved.
 A public repository and passing tests do not establish commercial readiness.
 There is no production-support SLA or guarantee that an arbitrary Windows app works.
 
 ## Engineering checks completed locally
 
+- Backup integrity manifests, verification before replacement, and cleanup of failed staging copies.
 - Native release build and ad hoc signature verification.
 - Unit tests for process, persistence, recovery, locking, deferred library preparation, and PE icon parsing.
 - Background library loading keeps the window responsive during protected-folder access.
