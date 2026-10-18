@@ -8,6 +8,7 @@ public struct AppProfile: Codable, Identifiable, Equatable, Sendable {
     public var createdAt: Date
     public var notes: String
     public var lastLaunchedAt: Date?
+    public var removedAt: Date?
 
     public init(id: UUID = UUID(), name: String, runtimePath: String, executablePath: String? = nil, notes: String = "") {
         self.id = id; self.name = name; self.runtimePath = runtimePath

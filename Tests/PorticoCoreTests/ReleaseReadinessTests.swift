@@ -50,6 +50,32 @@ final class ReleaseReadinessTests: XCTestCase {
         XCTAssertEqual(try store.load(), [valid])
     }
 
+    func testRemovedProfileRoundTripsAndCanBeRecoveredWithoutChangingPaths() throws {
+        var profile = AppProfile(name: "Keep data", runtimePath: "/runtime/wine", executablePath: "app.exe")
+        let original = profile
+        profile.removedAt = Date()
+        var recovered = try JSONDecoder().decode(AppProfile.self, from: JSONEncoder().encode(profile))
+        XCTAssertNotNil(recovered.removedAt)
+        recovered.removedAt = nil
+        XCTAssertEqual(recovered, original)
+        let legacy = try JSONDecoder().decode(AppProfile.self, from: JSONEncoder().encode(original))
+        XCTAssertNil(legacy.removedAt)
+    }
+    func testCompatibilityAdviceAdaptsToHardwareWithoutInventingGameSupport() {
+        let low = MacHardware(chip: "Test", appleSilicon: true, memoryGB: 8, graphics: "GPU", macOS: "15.0", freeStorageGB: 10)
+        XCTAssertTrue(low.guidance.contains { $0.contains("Rosetta") })
+        XCTAssertTrue(low.guidance.contains { $0.contains("less than 16") })
+        XCTAssertTrue(low.guidance.contains { $0.contains("Less than 20") })
+        let intel = MacHardware(chip: "Intel", appleSilicon: false, memoryGB: 32, graphics: "GPU", macOS: "14.0", freeStorageGB: nil)
+        XCTAssertFalse(intel.guidance.contains { $0.contains("Rosetta") })
+        XCTAssertFalse(intel.guidance.contains { $0.contains("Less than 20") })
+        let catalog = CompatibilitySuggestion.catalog(for: intel)
+        XCTAssertEqual(catalog.first { $0.id == "tally" }?.status, "Not tested on Intel")
+        XCTAssertEqual(catalog.first { $0.id == "anticheat" }?.status, "Do not recommend in Portico")
+        XCTAssertTrue(catalog.filter { $0.category == .games }.allSatisfy { !$0.status.contains("Verified") })
+        XCTAssertTrue(catalog.allSatisfy { $0.source.scheme == "https" })
+    }
+
     func testLibraryLocationDoesNotTouchDiskBeforeBackgroundPreparation() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

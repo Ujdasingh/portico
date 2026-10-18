@@ -2,7 +2,7 @@
 
 A native macOS workspace for Windows business applications, powered by Wine.
 
-Portico manages installation, launch settings, separate Windows environments, local logs, and recovery snapshots. TallyPrime is the first tested application family. **Version 0.2 is a development preview, not a certified production accounting environment.**
+Portico manages installation, launch settings, separate Windows environments, local logs, and recovery snapshots. TallyPrime is the first tested application family. **Version 0.3 is a development preview, not a certified production accounting environment.**
 
 ## Features
 
@@ -71,3 +71,10 @@ Read [release requirements](docs/RELEASING.md), [verification](docs/VERIFICATION
 ## Rights
 
 Copyright reserved. Public source visibility does not grant a licence to copy, modify, redistribute, or commercially exploit this project. See [LICENSE](LICENSE). Third-party software and trademarks remain subject to their owners’ terms. Wine, Tally installers, company data, licences, logs, and credentials are not included in this repository.
+
+## App management and compatibility
+
+- **Manage app → Uninstall program…** creates a verified prefix backup, then opens Wine’s Windows uninstaller for that environment. Complete or cancel the Windows dialog yourself. Some portable applications have no registered uninstaller. External data is not in the backup.
+- **Remove from library…** hides an idle profile while retaining its environment, data, runtime and backups. **Removed apps → Recover** returns the same entry. This does not free storage or surrender a licence. Use a program's uninstaller to remove its installed files; Portico has no permanent environment deletion action.
+- **This Mac & compatibility** reads chip, RAM, Metal GPU, macOS and free library-volume storage locally. Business/game tabs offer a small, dated guidance catalog with publisher/reference links. Memory/storage thresholds are conservative planning advice, not measured app requirements. The screen does not change existing runtime configuration, download anything, or upload hardware information.
+- No Windows game is verified by Portico. Native alternatives, limited user reports, experimental cases and unsupported anti-cheat requirements are distinguished. CrossOver and Steam Deck results do not establish Portico compatibility.

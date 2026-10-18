@@ -142,6 +142,34 @@ final class PorticoCoreTests: XCTestCase {
         catch { XCTAssertTrue(error.localizedDescription.contains("initialization")) }
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.prefixURL(for: app).appendingPathComponent(".portico-ready").path))
     }
+    func testUninstallerCreatesVerifiedBackupAndUsesSelectedPrefix() async throws {
+        let app = profile(); let prefix = try prepare(app); let service = WineService(store: store)
+        let untouched = prefix.appendingPathComponent("drive_c/accounts.txt")
+        try Data("keep".utf8).write(to: untouched)
+        let result = try await service.uninstall(profile: app)
+        XCTAssertEqual(result.exitCode, 0)
+        let output = try String(contentsOf: result.logURL)
+        XCTAssertTrue(output.contains("ARG=uninstaller"))
+        XCTAssertTrue(output.contains("PREFIX=" + prefix.path))
+        let snapshots = try await service.snapshots(profile: app)
+        XCTAssertEqual(snapshots.count, 1)
+        XCTAssertNotNil(snapshots.first?.integritySHA256)
+        XCTAssertEqual(try String(contentsOf: untouched), "keep")
+    }
+    func testUninstallerCannotRunWhenBackupCannotBeCreated() async throws {
+        let app = profile(); let service = WineService(store: store)
+        do { _ = try await service.uninstall(profile: app); XCTFail("Needs a verified backup first") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("Install an application")) }
+        let logs = (try? FileManager.default.contentsOfDirectory(at: store.logDirectory(for: app), includingPropertiesForKeys: nil)) ?? []
+        XCTAssertFalse(logs.contains { WineService.tail($0).contains("ARG=uninstaller") })
+    }
+    func testRemovalProbeRefusesFailedServerWithoutChangingMetadata() async throws {
+        let app = profile(); _ = try prepare(app); try store.save([app])
+        try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))
+        do { try await WineService(store: store).checkIdleForRemoval(profile: app); XCTFail("Cannot remove busy or unknown state") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("environment")) }
+        XCTAssertEqual(try store.load(), [app])
+    }
     func testSnapshotRefusesFailedWineserverProbe() async throws {
         let app = profile(); _ = try prepare(app)
         try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))

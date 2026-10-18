@@ -23,6 +23,9 @@ final class AppModel: ObservableObject {
     @Published var runtimeCheck: String?
     @Published var showLog = false
     @Published var showSupport = false
+    @Published var showCompatibility = false
+    @Published var showRemovedApps = false
+    @Published var hardware: MacHardware?
     @Published var supportReport = ""
     @Published var logText = ""
     @Published var storageFailed = false
@@ -50,13 +53,13 @@ final class AppModel: ObservableObject {
                 }.value
                 librarySession = loaded.0
                 profiles = loaded.1
-                selectedID = profiles.first?.id
+                selectedID = activeProfiles.first?.id
                 refreshRuntimes()
                 if let configured = ProcessInfo.processInfo.environment["PORTICO_WINE"], let runtime = try? WineService.validateRuntime(at: URL(fileURLWithPath: configured)) {
                     addRuntime(runtime); preferredRuntime = runtime.url.path
                 }
                 storageLoading = false
-                for profile in profiles {
+                for profile in activeProfiles {
                     perform(profile, status: "Checking previous session…", canStop: true) {
                         try await self.service.waitForExistingSession(profile: profile)
                     }
@@ -67,6 +70,8 @@ final class AppModel: ObservableObject {
             }
         }
     }
+    var activeProfiles: [AppProfile] { profiles.filter { $0.removedAt == nil } }
+    var removedProfiles: [AppProfile] { profiles.filter { $0.removedAt != nil } }
     var selected: AppProfile? { profiles.first { $0.id == selectedID } }
     var selectedBusy: Bool { selectedID.map { operations[$0] != nil } ?? false }
     var runningCount: Int { operations.count }
@@ -137,7 +142,7 @@ final class AppModel: ObservableObject {
         var profile = AppProfile(name: cleanName.isEmpty ? source.deletingPathExtension().lastPathComponent : cleanName, runtimePath: preferredRuntime)
         profile.notes = profile.name.lowercased().contains("tally") ? "Test with copied company data before moving your daily work. Check printing, exports, add-ons and any signature token." : "Compatibility depends on the Windows app and its dependencies."
         profiles.append(profile); selectedID = profile.id
-        guard save() else { profiles.removeAll { $0.id == profile.id }; selectedID = profiles.first?.id; return }
+        guard save() else { profiles.removeAll { $0.id == profile.id }; selectedID = activeProfiles.first?.id; return }
         showAdd = false
         if portable {
             perform(profile, status: "Copying portable app…") {
@@ -171,9 +176,50 @@ final class AppModel: ObservableObject {
         guard !preferredRuntime.isEmpty else { showRuntime = true; return }
         let profile = AppProfile(name: "Windows test", runtimePath: preferredRuntime, executablePath: "windows/system32/notepad.exe", notes: "Wine's included Windows Notepad. Use it to verify that Windows windows open on your Mac.")
         profiles.append(profile); selectedID = profile.id
-        guard save() else { profiles.removeAll { $0.id == profile.id }; selectedID = profiles.first?.id; return }
+        guard save() else { profiles.removeAll { $0.id == profile.id }; selectedID = activeProfiles.first?.id; return }
         showRuntime = false
         runTool(profile, tool: "notepad")
+    }
+    func uninstall(_ profile: AppProfile) {
+        perform(profile, status: "Backing up, then opening Windows uninstaller…") {
+            let result = try await self.service.uninstall(profile: profile)
+            self.handle(result, profile: profile)
+            if let executable = try? self.store.executableURL(for: profile),
+               !FileManager.default.fileExists(atPath: executable.path),
+               let index = self.profiles.firstIndex(where: { $0.id == profile.id }) {
+                let previous = self.profiles[index].executablePath
+                self.profiles[index].executablePath = nil
+                if !self.save() { self.profiles[index].executablePath = previous }
+            }
+            if result.exitCode == 0 {
+                self.notice = "Windows uninstaller closed. A verified backup was kept. Use Remove from library if you no longer want this entry."
+            }
+        }
+    }
+    func removeFromLibrary(_ profile: AppProfile) {
+        perform(profile, status: "Checking environment before removal…") {
+            try await self.service.checkIdleForRemoval(profile: profile)
+            guard let index = self.profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+            self.profiles[index].removedAt = Date()
+            guard self.save() else { self.profiles[index].removedAt = nil; return }
+            self.selectedID = self.activeProfiles.first?.id
+            self.notice = "App removed from the library. Its files and backups are retained. Recover it from Removed apps. This does not free disk space."
+        }
+    }
+    func recoverRemovedApp(_ profile: AppProfile) {
+        guard let index = profiles.firstIndex(where: { $0.id == profile.id }), operations[profile.id] == nil else { return }
+        let previous = profiles[index].removedAt
+        profiles[index].removedAt = nil
+        guard save() else { profiles[index].removedAt = previous; return }
+        selectedID = profile.id; showRemovedApps = false
+        notice = "App returned to the library. Its existing environment and runtime are unchanged."
+    }
+    func openCompatibility() {
+        showCompatibility = true
+        let root = store.rootURL
+        Task {
+            hardware = await Task.detached(priority: .userInitiated) { MacHardware.detect(storageURL: root) }.value
+        }
     }
     func stop(_ profile: AppProfile) {
         guard stoppable.contains(profile.id) else { return }

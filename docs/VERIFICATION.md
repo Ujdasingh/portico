@@ -62,3 +62,11 @@ The working installed application and its Tally environments have not been modif
 - Installed 0.2.2 in Applications, preserving its configured library pointer and a rollback copy of the previous app. No Portico or Tally process was running before replacement.
 - Native UI verification: report displays version 0.2.2/build 4, library ready, three profiles and zero active operations. TallyPrime 5.1 retains its original executable selection and pinned runtime. The library metadata checksum is unchanged after app startup. Tally was not launched, reinstalled, reactivated, or migrated during this update.
 - Developer ID signing/notarization, supported runtime distribution and the remaining accounting/peripheral acceptance gates are still outstanding.
+
+## 0.3.0 app management and compatibility — 18 October 2026
+
+- All 27 tests pass. New tests check backup-before-uninstaller behavior, refusal without backup or idle confirmation, removed-profile metadata recovery and hardware-based guidance rules. The uninstaller process tests use a fake Wine fixture; an actual Windows uninstall was not executed against the user's apps.
+- Release build and ad hoc signature verification pass. Installed in Applications with the existing library pointer and prior app retained for rollback. Library metadata checksum remains unchanged after startup/UI checks.
+- Native UI shows Uninstall program and Remove from library, Removed apps navigation, and the new compatibility screen. The uninstall confirmation was inspected and cancelled. No app was uninstalled or hidden during verification.
+- Hardware UI correctly detected the test Mac as Apple M1 Pro, 16 GB RAM, macOS 15.8.1, M1 Pro Metal GPU, approximately 58 GB free library-volume storage. Business and Games tabs and their references were inspected; screenshot layout verified.
+- No Tally environment, runtime or licence configuration was changed. Native Mac recommendations and experimental Windows/game guidance are not compatibility guarantees.

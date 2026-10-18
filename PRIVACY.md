@@ -19,3 +19,5 @@ A Wine prefix is not a security sandbox.
 Removing Portico.app does not remove its library. Back up business data before
 managing library files. Portico currently provides no automatic log or snapshot
 retention policy.
+
+The compatibility screen reads hardware specifications and available library-volume storage locally. This information is not added to the support report or uploaded. Opening a publisher/reference link contacts that website through the browser. Removed app entries and their files remain local until you manage them yourself.

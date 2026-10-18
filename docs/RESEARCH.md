@@ -44,3 +44,15 @@ The [Homebrew wine-stable listing](https://formulae.brew.sh/cask/wine-stable) cu
 ## Work required before calling this production-ready
 
 Complete Tally installation and its accounting acceptance tests on copied data; investigate any resulting engine failures; validate peripherals and offline licence behavior; test recovery after power loss and low disk space; add signed/notarized distribution and a maintained runtime update policy. These are outstanding work, not claimed capabilities.
+
+## Compatibility guidance catalog — reviewed 18 October 2026
+
+The in-app catalog is intentionally a small set of guidance, not a scraped or certified compatibility database. Hardware detection does not establish whether a Windows application will run. Current primary references:
+
+- [WineHQ help / AppDB guidance](https://www.winehq.org/help) for per-application investigation.
+- [CrossOver graphics settings](https://support.codeweavers.com/advanced-settings-in-crossover-mac) describe graphics backends that are not configured in Portico.
+- [CodeWeavers anti-cheat guidance](https://support.codeweavers.com/anti-cheat) describes the low-level anti-cheat limitation.
+- [LibreOffice downloads](https://www.libreoffice.org/download/) distinguish Apple Silicon and Intel Mac downloads.
+- [OpenTTD installation](https://wiki.openttd.org/en/Manual/Installation) and [official downloads](https://www.openttd.org/downloads/openttd-releases/latest) offer a native Mac route.
+
+No commercial compatibility rating is copied into Portico. Tally’s limited user-reported success is stated with the observed host/runtime context. No Windows game has passed a Portico acceptance run.

@@ -217,6 +217,24 @@ public actor WineService {
         return result(code: code, log: log)
     }
 
+    public func uninstall(profile: AppProfile) async throws -> RunResult {
+        let operationLock = try lock(profile)
+        defer { busy.remove(profile.id); withExtendedLifetime(operationLock) {} }
+        let log = logURL(profile, action: "uninstall")
+        try await ensureIdle(profile, log: log)
+        // Refuse to open an uninstaller unless a verified recovery point exists.
+        _ = try await makeSnapshot(profile, log: log)
+        let code = try await run(profile, arguments: ["uninstaller"], log: log, directory: store.prefixURL(for: profile))
+        let waitCode = try await server(profile, arguments: ["-w"], log: log)
+        return result(code: code == 0 ? waitCode : code, log: log)
+    }
+
+    public func checkIdleForRemoval(profile: AppProfile) async throws {
+        let operationLock = try lock(profile)
+        defer { busy.remove(profile.id); withExtendedLifetime(operationLock) {} }
+        try await ensureIdle(profile, log: logURL(profile, action: "remove-check"))
+    }
+
     public func waitForExistingSession(profile: AppProfile) async throws {
         guard FileManager.default.fileExists(atPath: store.prefixURL(for: profile).appendingPathComponent("system.reg").path) else { return }
         let operationLock = try lock(profile)

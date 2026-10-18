@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var search = ""
     @State private var confirmRestore: PrefixSnapshot?
     @State private var confirmStop = false
+    @State private var confirmUninstall = false
+    @State private var confirmRemove = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -24,6 +26,8 @@ struct ContentView: View {
                 }
             }.background(Palette.canvas)
         }
+        .sheet(isPresented: $model.showCompatibility) { CompatibilityView().environmentObject(model) }
+        .sheet(isPresented: $model.showRemovedApps) { RemovedAppsView().environmentObject(model) }
         .sheet(isPresented: $model.showAdd) { AddAppView().environmentObject(model) }
         .sheet(isPresented: $model.showRuntime) { RuntimeView().environmentObject(model) }
         .sheet(isPresented: $model.showSupport) { SupportReportView().environmentObject(model) }
@@ -36,6 +40,14 @@ struct ContentView: View {
             Button("Stop app", role: .destructive) { if let profile = model.selected { model.stop(profile) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Unsaved work may be lost. This stops only the selected app's Windows environment.") }
+        .alert("Open Windows uninstaller?", isPresented: $confirmUninstall) {
+            Button("Back up and continue") { if let profile = model.selected { model.uninstall(profile) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("Portico first creates a verified backup, then opens this environment's Windows uninstaller. Choose the program there. Uninstallers may delete app data; external folders are not backed up. For portable apps, use Remove from library instead.") }
+        .alert("Remove this app from the library?", isPresented: $confirmRemove) {
+            Button("Remove from library") { if let profile = model.selected { model.removeFromLibrary(profile) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("The entry will be hidden. Its Windows environment, data, runtime and backups stay on disk. Recover it from Removed apps. This does not free disk space or surrender a licence.") }
         .alert("Restore this backup?", isPresented: Binding(get: { confirmRestore != nil }, set: { if !$0 { confirmRestore = nil } })) {
             Button("Restore") { if let profile = model.selected, let snapshot = confirmRestore { model.restore(profile, snapshot: snapshot) }; confirmRestore = nil }
             Button("Cancel", role: .cancel) { confirmRestore = nil }
@@ -74,13 +86,19 @@ struct ContentView: View {
                     .font(.system(size: 13, weight: .medium)).padding(12).foregroundStyle(.white.opacity(model.selectedID == nil ? 1 : 0.65))
                     .background(model.selectedID == nil ? Color.white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 9))
             }.buttonStyle(.plain).padding(.horizontal, 12)
-            HStack { Text("YOUR APPS").font(.system(size: 10, weight: .semibold)).tracking(1.7); Spacer(); Text("\(model.profiles.count)").font(.system(size: 10, weight: .medium)) }.foregroundStyle(.white.opacity(0.35)).padding(.horizontal, 24).padding(.top, 29).padding(.bottom, 12)
-            if !model.profiles.isEmpty {
+            Button { model.openCompatibility() } label: {
+                Label("This Mac & compatibility", systemImage: "laptopcomputer").font(.system(size: 12)).foregroundStyle(.white.opacity(0.85)).padding(12)
+            }.buttonStyle(.plain).padding(.horizontal, 12)
+            Button { model.showRemovedApps = true } label: {
+                Label("Removed apps (\(model.removedProfiles.count))", systemImage: "archivebox").font(.system(size: 12)).foregroundStyle(.white.opacity(0.65)).padding(12)
+            }.buttonStyle(.plain).padding(.horizontal, 12)
+            HStack { Text("YOUR APPS").font(.system(size: 10, weight: .semibold)).tracking(1.7); Spacer(); Text("\(model.activeProfiles.count)").font(.system(size: 10, weight: .medium)) }.foregroundStyle(.white.opacity(0.35)).padding(.horizontal, 24).padding(.top, 29).padding(.bottom, 12)
+            if !model.activeProfiles.isEmpty {
                 HStack { Image(systemName: "magnifyingglass"); TextField("Find an app", text: $search, prompt: Text("Find an app").foregroundColor(.white.opacity(0.5))).textFieldStyle(.plain).foregroundStyle(.white) }.font(.system(size: 11)).foregroundStyle(.white.opacity(0.6)).padding(9).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 7)).padding(.horizontal, 18).padding(.bottom, 9)
             }
             ScrollView {
                 VStack(spacing: 5) {
-                    ForEach(model.profiles.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
+                    ForEach(model.activeProfiles.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
                         Button { model.selectedID = profile.id } label: {
                             HStack(spacing: 10) {
                                 AppTile(name: profile.name, size: 33, executable: try? model.store.executableURL(for: profile))
@@ -93,7 +111,7 @@ struct ContentView: View {
                             }.padding(10).background(model.selectedID == profile.id ? .white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 9))
                         }.buttonStyle(.plain)
                     }
-                    if model.profiles.isEmpty { Text("Your Windows apps will\nappear here.").font(.system(size: 12)).foregroundStyle(.white.opacity(0.3)).lineSpacing(5).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10) }
+                    if model.activeProfiles.isEmpty { Text("Your Windows apps will\nappear here.").font(.system(size: 12)).foregroundStyle(.white.opacity(0.3)).lineSpacing(5).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.top, 10) }
                 }.padding(.horizontal, 12)
             }
             Button { model.showAdd = true } label: { Label("Add Windows app", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(PrimaryStyle()).padding(18)
@@ -198,6 +216,16 @@ struct ContentView: View {
                             HStack { Image(systemName: "archivebox").foregroundStyle(Palette.teal); Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.system(size: 12)); Spacer(); Button(backup.integritySHA256 == nil ? "Legacy backup" : "Restore") { confirmRestore = backup }.disabled(model.selectedBusy || backup.integritySHA256 == nil).help(backup.integritySHA256 == nil ? "This older backup has no integrity record. Its files are preserved for manual recovery." : "Verify and restore this backup") }.padding(.vertical, 5)
                         }
                         Button("Show all backup files") { model.reveal(model.store.backupDirectory(for: profile)) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.indigo)
+                    }
+                }
+            }
+            Surface {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Manage app").font(.system(size: 15, weight: .semibold))
+                    Text("Uninstall a Windows program, or hide this entry while keeping its files for recovery.").font(.system(size: 12)).foregroundStyle(Palette.muted)
+                    HStack {
+                        Button("Uninstall program…") { confirmUninstall = true }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
+                        Button("Remove from library…") { confirmRemove = true }.buttonStyle(SecondaryStyle()).disabled(model.selectedBusy)
                     }
                 }
             }
