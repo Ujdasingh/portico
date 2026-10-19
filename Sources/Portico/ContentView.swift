@@ -6,10 +6,10 @@ struct ContentView: View {
     @EnvironmentObject var model: AppModel
     private enum SidebarItem: Hashable { case allApps, app(UUID) }
     @State private var search = ""
-    @State private var confirmRestore: PrefixSnapshot?
-    @State private var confirmStop = false
-    @State private var confirmUninstall = false
-    @State private var confirmDelete = false
+    @State private var confirmRestore: (profile: AppProfile, snapshot: PrefixSnapshot)?
+    @State private var confirmStop: AppProfile?
+    @State private var confirmUninstall: AppProfile?
+    @State private var confirmDelete: AppProfile?
 
     var body: some View {
         NavigationSplitView {
@@ -27,7 +27,7 @@ struct ContentView: View {
                                 .buttonStyle(.plain).help("Dismiss notification").accessibilityLabel("Dismiss notification")
                         }.padding(14).background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
                     }
-                    if let profile = model.selected { detail(profile) } else { welcome }
+                    if let profile = model.selected { detail(profile).id(profile.id) } else { welcome }
                 }.padding(28).frame(maxWidth: 900, alignment: .leading).frame(maxWidth: .infinity)
             }
             .background(Palette.canvas)
@@ -51,22 +51,22 @@ struct ContentView: View {
             if model.latestLog != nil { Button("View log") { model.openLog() } }
             Button("OK", role: .cancel) { model.error = nil }
         } message: { Text(model.error ?? "") }
-        .alert("Stop the Windows app?", isPresented: $confirmStop) {
-            Button("Stop app", role: .destructive) { if let profile = model.selected { model.stop(profile) } }
+        .alert("Stop \(confirmStop?.name ?? "app")?", isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } }), presenting: confirmStop) { target in
+            Button("Stop app", role: .destructive) { model.stop(target); confirmStop = nil }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Unsaved work may be lost. This stops only the selected app's Windows environment.") }
-        .alert("Open Windows uninstaller?", isPresented: $confirmUninstall) {
-            Button("Back up and continue") { if let profile = model.selected { model.uninstall(profile) } }
+        } message: { _ in Text("Unsaved work may be lost. This stops only the selected app's Windows environment.") }
+        .alert("Uninstall programs in \(confirmUninstall?.name ?? "app")?", isPresented: Binding(get: { confirmUninstall != nil }, set: { if !$0 { confirmUninstall = nil } }), presenting: confirmUninstall) { target in
+            Button("Back up and continue") { model.uninstall(target); confirmUninstall = nil }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Portico first creates a verified backup, then opens this environment's Windows uninstaller. Choose the program there. Uninstallers may delete app data; external folders are not backed up. For portable apps, use Delete App instead.") }
-        .alert("Permanently delete this app?", isPresented: $confirmDelete) {
-            Button("Delete App", role: .destructive) { if let profile = model.selected { model.deleteApp(profile) } }
+        } message: { _ in Text("Portico first creates a verified backup, then opens this environment's Windows uninstaller. Choose the program there. Uninstallers may delete app data; external folders are not backed up. For portable apps, use Delete App instead.") }
+        .alert("Delete \(confirmDelete?.name ?? "app") permanently?", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }), presenting: confirmDelete) { target in
+            Button("Delete App", role: .destructive) { model.deleteApp(target); confirmDelete = nil }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("This permanently deletes the selected app's Windows environment, all data inside it, session logs and backups. This cannot be undone. Other apps, shared runtimes and external folders are kept. This does not surrender a licence.") }
-        .alert("Restore this backup?", isPresented: Binding(get: { confirmRestore != nil }, set: { if !$0 { confirmRestore = nil } })) {
-            Button("Restore") { if let profile = model.selected, let snapshot = confirmRestore { model.restore(profile, snapshot: snapshot) }; confirmRestore = nil }
+        } message: { _ in Text("This permanently deletes the selected app's Windows environment, all data inside it, session logs and backups. This cannot be undone. Other apps, shared runtimes and external folders are kept. This does not surrender a licence.") }
+        .alert("Restore this backup?", isPresented: Binding(get: { confirmRestore != nil }, set: { if !$0 { confirmRestore = nil } }), presenting: confirmRestore) { target in
+            Button("Restore") { model.restore(target.profile, snapshot: target.snapshot); confirmRestore = nil }
             Button("Cancel", role: .cancel) { confirmRestore = nil }
-        } message: { Text("Portico will preserve the current environment in a separate folder before replacing it. External data files are not included.") }
+        } message: { _ in Text("Portico will preserve the current environment in a separate folder before replacing it. External data files are not included.") }
         .task(id: model.selectedID) { await model.refreshDetails() }
         .disabled(model.storageFailed || model.storageLoading)
         .overlay {
@@ -90,6 +90,10 @@ struct ContentView: View {
             }
         }
     }
+    private var filteredProfiles: [AppProfile] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return model.activeProfiles.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+    }
     private var sidebar: some View {
         VStack(spacing: 0) {
             List(selection: Binding<SidebarItem?>(
@@ -108,7 +112,7 @@ struct ContentView: View {
 
                 }
                 Section("Windows Apps") {
-                    ForEach(model.activeProfiles.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
+                    ForEach(filteredProfiles) { profile in
                         HStack(spacing: 10) {
                             AppTile(name: profile.name, size: 28, executable: try? model.store.executableURL(for: profile))
                             VStack(alignment: .leading, spacing: 3) {
@@ -119,7 +123,7 @@ struct ContentView: View {
                         }.padding(.vertical, 4).tag(SidebarItem.app(profile.id))
                     }
                     if model.activeProfiles.isEmpty { Text("Add an app to get started.").font(.callout).foregroundStyle(.secondary) }
-                    else if !search.isEmpty && !model.activeProfiles.contains(where: { $0.name.localizedCaseInsensitiveContains(search) }) {
+                    else if filteredProfiles.isEmpty {
                         Text("No matching apps").foregroundStyle(.secondary)
                     }
                 }
@@ -127,7 +131,7 @@ struct ContentView: View {
             .searchable(text: $search, placement: .sidebar, prompt: "Search apps")
             Divider()
             HStack {
-                Label("\(model.activeProfiles.count) apps", systemImage: "square.stack").font(.caption).foregroundStyle(.secondary)
+                Label(model.activeProfiles.count == 1 ? "1 app" : "\(model.activeProfiles.count) apps", systemImage: "square.stack").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { model.showAdd = true } label: { Image(systemName: "plus") }.buttonStyle(.borderless)
                     .help("Add Windows app").accessibilityLabel("Add Windows app")
@@ -145,9 +149,12 @@ struct ContentView: View {
                     Label("No Windows Apps", systemImage: "square.stack.3d.up")
                 } description: { Text("Add an official Windows installer or a portable app to get started.") }
                 actions: { Button("Add Windows App…") { model.showAdd = true }.buttonStyle(.borderedProminent) }
+            } else if filteredProfiles.isEmpty {
+                ContentUnavailableView.search(text: search)
+                Button("Clear Search") { search = "" }
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 16)], spacing: 16) {
-                    ForEach(model.activeProfiles) { profile in
+                    ForEach(filteredProfiles) { profile in
                         Button { model.selectedID = profile.id } label: {
                             VStack(alignment: .leading, spacing: 14) {
                                 AppTile(name: profile.name, size: 48, executable: try? model.store.executableURL(for: profile))
@@ -185,7 +192,7 @@ struct ContentView: View {
                 }
                 Spacer()
                 if model.selectedBusy {
-                    if model.stoppable.contains(profile.id) { Button("Stop…", role: .destructive) { confirmStop = true }.buttonStyle(.bordered) }
+                    if model.stoppable.contains(profile.id) { Button("Stop…", role: .destructive) { confirmStop = profile }.buttonStyle(.bordered) }
                 } else {
                     Button { model.launch(profile) } label: { Label("Open", systemImage: "play.fill") }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(profile.executablePath == nil)
@@ -228,7 +235,9 @@ struct ContentView: View {
                         Button { model.backup(profile) } label: { Label("Create Backup", systemImage: "plus") }.disabled(model.selectedBusy)
                     }
                     Text("Close the Windows app first. Files outside its environment need a separate backup.").font(.callout).foregroundStyle(.secondary)
-                    if model.backups.isEmpty {
+                    if model.detailsLoading {
+                        HStack(spacing: 10) { ProgressView().controlSize(.small); Text("Loading backups…").foregroundStyle(.secondary) }
+                    } else if model.backups.isEmpty {
                         HStack(spacing: 12) {
                             Image(systemName: "archivebox").font(.title2).foregroundStyle(.tertiary)
                             Text("No backups yet").foregroundStyle(.secondary)
@@ -239,8 +248,8 @@ struct ContentView: View {
                                 Image(systemName: "archivebox").foregroundStyle(.secondary)
                                 Text(backup.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 Spacer()
-                                Button(backup.integritySHA256 == nil ? "Legacy Backup" : "Restore…") { confirmRestore = backup }
-                                    .disabled(model.selectedBusy || backup.integritySHA256 == nil)
+                                Button(backup.integritySHA256 == nil ? "Legacy Backup" : "Restore…") { confirmRestore = (profile, backup) }
+                                    .disabled(model.selectedBusy || model.detailsLoading || backup.integritySHA256 == nil)
                                     .help(backup.integritySHA256 == nil ? "Preserved for manual recovery; no integrity record is available." : "Verify and restore this backup")
                             }.font(.callout)
                         }
@@ -253,8 +262,8 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Uninstall a Windows program, or permanently delete this app and all files in its environment.").font(.callout).foregroundStyle(.secondary)
                         HStack {
-                            Button("Uninstall Program…", role: .destructive) { confirmUninstall = true }.disabled(model.selectedBusy)
-                            Button("Delete App…", role: .destructive) { confirmDelete = true }.disabled(model.selectedBusy)
+                            Button("Uninstall Program…", role: .destructive) { confirmUninstall = profile }.disabled(model.selectedBusy)
+                            Button("Delete App…", role: .destructive) { confirmDelete = profile }.disabled(model.selectedBusy)
                         }.buttonStyle(.bordered)
                     }.padding(.top, 12)
                 } label: { Label("Manage App", systemImage: "ellipsis.circle").font(.headline) }

@@ -104,3 +104,12 @@ Design references: [Apple sidebars](https://developer.apple.com/design/human-int
 - All 30 tests pass, including scoped deletion, external-target preservation, redirected-path rejection and failed-idle-probe refusal. Release build and ad hoc signature verification pass.
 - Installed 0.5.0 with the existing library pointer and unchanged metadata during bundle replacement. Verified the two remaining app entries, management buttons and permanent-deletion warning; cancelled the test dialog.
 - The user-requested hidden older TallyPrime environment was deleted separately through the tested backend. TallyPrime 5.1 and the shared runtime remain. No Tally launch, licence change or reconfiguration was performed.
+
+## 0.5.1 selection safety and interface polish — 19 October 2026
+
+- Stop, uninstall, delete and restore confirmations capture the intended profile rather than acting on a later selection. Stop, uninstall and delete prompts identify the app by name.
+- Selection changes clear backup/executable/log details immediately. Request identities and cancellation checks prevent superseded asynchronous detail loads from publishing stale results or errors. Launch-setting changes roll back in memory if saving fails.
+- Search filters both sidebar and overview; no-result states offer Clear Search. Detail disclosures reset between apps, new-app names start blank, sheets support Escape, and missing logs show an explicit empty state.
+- Release build and ad hoc signature verification passed. All 30 existing core tests passed; these do not automatically cover SwiftUI selection races. Manual checks covered overview search/clear, sheet Escape, target-named deletion confirmation (cancelled), app selection and disclosure reset in dark appearance.
+- Installed 0.5.1 in Applications with a rollback bundle. Library metadata checksum remained identical through installation and UI verification. No Tally launch, stop, configuration, licence or data operation was performed.
+- Developer ID/notarization, runtime distribution clearance and the broader acceptance matrix remain release gates.

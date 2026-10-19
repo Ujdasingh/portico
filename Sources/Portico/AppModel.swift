@@ -6,7 +6,16 @@ import PorticoCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published var profiles: [AppProfile] = []
-    @Published var selectedID: UUID?
+    @Published var selectedID: UUID? {
+        didSet {
+            if oldValue != selectedID {
+                backups = []; executables = []; latestLog = nil
+                detailsLoading = selectedID != nil
+            }
+        }
+    }
+    @Published var detailsLoading = false
+    private var detailsRequest = UUID()
     @Published var runtimes: [WineRuntime] = []
     @Published var preferredRuntime = ""
     @Published var operations: [UUID: String] = [:]
@@ -252,17 +261,27 @@ final class AppModel: ObservableObject {
         else if let diagnostic = result.diagnostic { notice = diagnostic }
     }
     func refreshDetails() async {
-        guard let profile = selected else { backups = []; executables = []; return }
+        let request = UUID()
+        detailsRequest = request
+        guard let profile = selected else { backups = []; executables = []; detailsLoading = false; return }
+        detailsLoading = true
+        defer { if detailsRequest == request { detailsLoading = false } }
         do {
             let nextBackups = try await service.snapshots(profile: profile)
             let nextExecutables = try await service.discoverExecutables(profile: profile)
-            guard selectedID == profile.id else { return }
+            guard !Task.isCancelled, detailsRequest == request, selectedID == profile.id else { return }
             backups = nextBackups; executables = nextExecutables; findLatestLog(profile)
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            guard !Task.isCancelled, detailsRequest == request, selectedID == profile.id else { return }
+            backups = []; executables = []
+            self.error = error.localizedDescription
+        }
     }
     func chooseExecutable(_ relative: String) {
         guard let index = profiles.firstIndex(where: { $0.id == selectedID }), !selectedBusy else { return }
-        profiles[index].executablePath = relative.isEmpty ? nil : relative; save()
+        let previous = profiles[index].executablePath
+        profiles[index].executablePath = relative.isEmpty ? nil : relative
+        if !save() { profiles[index].executablePath = previous }
     }
     func browseExecutable(_ profile: AppProfile) {
         let panel = NSOpenPanel(); panel.title = "Choose the installed program"
@@ -296,6 +315,6 @@ final class AppModel: ObservableObject {
         do { try supportReport.write(to: url, atomically: true, encoding: .utf8) }
         catch { self.error = "Could not save the support report: \(error.localizedDescription)" }
     }
-    func openLog() { if let profile = selected { findLatestLog(profile) }; guard let latestLog else { return }; logText = WineService.tail(latestLog); showLog = true }
+    func openLog() { if let profile = selected { findLatestLog(profile) }; logText = latestLog.map { WineService.tail($0) } ?? ""; showLog = true }
     func reveal(_ url: URL) { NSWorkspace.shared.open(url) }
 }

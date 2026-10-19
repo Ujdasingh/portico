@@ -4,7 +4,7 @@ import PorticoCore
 struct AddAppView: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.dismiss) var dismiss
-    @State private var name = "TallyPrime"
+    @State private var name = ""
     @State private var portable = false
     var body: some View {
         VStack(alignment: .leading, spacing: 23) {
@@ -22,7 +22,7 @@ struct AddAppView: View {
             }
             Text("Windows applications can access files your Mac account can access. A Wine environment is not a security sandbox.").font(.system(size: 11)).foregroundStyle(Palette.muted).lineSpacing(3)
             Divider()
-            HStack { Link("Official TallyPrime download ↗", destination: URL(string: "https://tallysolutions.com/download/")!).font(.system(size: 11)); Spacer(); Button("Cancel") { dismiss() }.buttonStyle(.bordered); Button(model.runtimes.isEmpty ? "Set up runtime" : "Choose file…") { if model.runtimes.isEmpty { dismiss(); model.showRuntime = true } else { model.addApp(name: name, portable: portable) } }.buttonStyle(.borderedProminent) }
+            HStack { Link("Official TallyPrime download ↗", destination: URL(string: "https://tallysolutions.com/download/")!).font(.system(size: 11)); Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(.bordered); Button(model.runtimes.isEmpty ? "Set up runtime" : "Choose file…") { if model.runtimes.isEmpty { dismiss(); model.showRuntime = true } else { model.addApp(name: name, portable: portable) } }.buttonStyle(.borderedProminent) }
         }.padding(30).frame(width: 570).background(Palette.canvas)
     }
 }
@@ -49,7 +49,7 @@ struct RuntimeView: View {
             }
             if let progress = model.runtimeProgress { HStack(spacing: 11) { ProgressView().controlSize(.small); Text(progress).font(.system(size: 12)) }.padding(13).frame(maxWidth: .infinity, alignment: .leading).background(Palette.indigo.opacity(0.06), in: RoundedRectangle(cornerRadius: 9)) }
             if let check = model.runtimeCheck { Text(check).font(.system(size: 12)).foregroundStyle(Palette.muted).textSelection(.enabled).lineSpacing(4) }
-            HStack { Text("Each app keeps the runtime it was created with.").font(.system(size: 11)).foregroundStyle(Palette.muted); Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
+            HStack { Text("Each app keeps the runtime it was created with.").font(.system(size: 11)).foregroundStyle(Palette.muted); Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(.borderedProminent) }
         }.padding(30).frame(width: 640).background(Palette.canvas).interactiveDismissDisabled(model.runtimeProgress != nil)
     }
 }
@@ -60,8 +60,8 @@ struct LogView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack { VStack(alignment: .leading, spacing: 6) { Text("Session log").font(.system(size: 22, weight: .semibold, design: .rounded)); Text("Logs stay on this Mac. Review them before sharing: they may contain file paths or app data.").font(.system(size: 11)).foregroundStyle(Palette.muted) }; Spacer() }
-            ScrollView([.horizontal, .vertical]) { Text(model.logText.isEmpty ? "The process did not write any diagnostic output." : model.logText).font(.system(size: 11, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .topLeading).padding(15) }.frame(height: 390).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-            HStack { Button("Refresh") { if let url = model.latestLog { model.logText = WineService.tail(url) } }; Button("Show log file") { if let url = model.latestLog { NSWorkspace.shared.activateFileViewerSelecting([url]) } }; Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
+            ScrollView([.horizontal, .vertical]) { Text(model.latestLog == nil ? "No session log yet. Logs appear after an app operation." : model.logText.isEmpty ? "The process did not write any diagnostic output." : model.logText).font(.system(size: 11, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .topLeading).padding(15) }.frame(height: 390).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            HStack { Button("Refresh") { if let url = model.latestLog { model.logText = WineService.tail(url) } }; Button("Show log file") { if let url = model.latestLog { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.disabled(model.latestLog == nil); Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(.borderedProminent) }
         }.padding(28).frame(width: 760).background(Palette.canvas)
     }
 }
@@ -82,7 +82,7 @@ struct SupportReportView: View {
                 Button("Refresh") { model.openSupportReport() }.buttonStyle(.bordered)
                 Button("Save report…") { model.saveSupportReport() }.buttonStyle(.bordered)
                 Spacer()
-                Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(.borderedProminent)
             }
         }.padding(28).frame(width: 660).background(Palette.canvas)
     }

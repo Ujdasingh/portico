@@ -81,4 +81,4 @@ Copyright reserved. Public source visibility does not grant a licence to copy, m
 
 ## Native Mac interface
 
-The sidebar supports app selection and search. Use the toolbar to add an app, open runtime settings or inspect the session log. App pages keep **Open** prominent, with common tools and backups below. Expand **Launch Settings** for the executable/runtime and **Manage App** for uninstall or permanent deletion. The interface follows macOS appearance and accent colors while retaining installed apps’ original icons.
+Search filters both the sidebar and All Apps, with a clear no-results state. App-specific confirmations retain their original target, and switching apps clears stale backup and executable details while loading. Use the toolbar to add an app, open runtime settings or inspect the session log. App pages keep **Open** prominent, with common tools and backups below. Expand **Launch Settings** for the executable/runtime and **Manage App** for uninstall or permanent deletion. The interface follows macOS appearance and accent colors while retaining installed apps’ original icons.
