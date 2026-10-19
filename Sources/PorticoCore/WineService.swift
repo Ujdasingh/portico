@@ -231,10 +231,19 @@ public actor WineService {
         return result(code: code == 0 ? waitCode : code, log: log)
     }
 
-    public func checkIdleForRemoval(profile: AppProfile) async throws {
+    public func deleteApp(profile: AppProfile) async throws {
+        // Validate every destination before any mutation; reject redirected ancestors.
+        let paths = try ["Apps", "Backups", "Logs"].map {
+            try LibraryStore.containedURL(relativePath: $0 + "/" + profile.id.uuidString, root: store.rootURL)
+        }
         let operationLock = try lock(profile)
         defer { busy.remove(profile.id); withExtendedLifetime(operationLock) {} }
-        try await ensureIdle(profile, log: logURL(profile, action: "remove-check"))
+        try await ensureIdle(profile, log: logURL(profile, action: "delete-check"))
+        // FileManager removes links inside the tree without traversing their targets.
+        // Delete the app environment last so a failure remains safely retryable.
+        for path in [paths[1], paths[2], paths[0]] where FileManager.default.fileExists(atPath: path.path) {
+            try FileManager.default.removeItem(at: path)
+        }
     }
 
     public func waitForExistingSession(profile: AppProfile) async throws {

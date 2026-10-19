@@ -24,7 +24,6 @@ final class AppModel: ObservableObject {
     @Published var showLog = false
     @Published var showSupport = false
     @Published var showCompatibility = false
-    @Published var showRemovedApps = false
     @Published var hardware: MacHardware?
     @Published var supportReport = ""
     @Published var logText = ""
@@ -70,8 +69,7 @@ final class AppModel: ObservableObject {
             }
         }
     }
-    var activeProfiles: [AppProfile] { profiles.filter { $0.removedAt == nil } }
-    var removedProfiles: [AppProfile] { profiles.filter { $0.removedAt != nil } }
+    var activeProfiles: [AppProfile] { profiles }
     var selected: AppProfile? { profiles.first { $0.id == selectedID } }
     var selectedBusy: Bool { selectedID.map { operations[$0] != nil } ?? false }
     var runningCount: Int { operations.count }
@@ -192,27 +190,23 @@ final class AppModel: ObservableObject {
                 if !self.save() { self.profiles[index].executablePath = previous }
             }
             if result.exitCode == 0 {
-                self.notice = "Windows uninstaller closed. A verified backup was kept. Use Remove from library if you no longer want this entry."
+                self.notice = "Windows uninstaller closed. A verified backup was kept. Use Delete App to permanently remove its environment and library entry."
             }
         }
     }
-    func removeFromLibrary(_ profile: AppProfile) {
-        perform(profile, status: "Checking environment before removal…") {
-            try await self.service.checkIdleForRemoval(profile: profile)
-            guard let index = self.profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-            self.profiles[index].removedAt = Date()
-            guard self.save() else { self.profiles[index].removedAt = nil; return }
+    func deleteApp(_ profile: AppProfile) {
+        perform(profile, status: "Deleting app and local files…") {
+            try await self.service.deleteApp(profile: profile)
+            let previous = self.profiles
+            self.profiles.removeAll { $0.id == profile.id }
+            guard self.save() else {
+                self.profiles = previous
+                self.error = "App files were deleted, but the library entry could not be saved. Retry Delete App to remove the remaining entry."
+                return
+            }
             self.selectedID = self.activeProfiles.first?.id
-            self.notice = "App removed from the library. Its files and backups are retained. Recover it from Removed apps. This does not free disk space."
+            self.notice = "App, environment, logs and backups permanently deleted. Shared runtimes and external folders were kept."
         }
-    }
-    func recoverRemovedApp(_ profile: AppProfile) {
-        guard let index = profiles.firstIndex(where: { $0.id == profile.id }), operations[profile.id] == nil else { return }
-        let previous = profiles[index].removedAt
-        profiles[index].removedAt = nil
-        guard save() else { profiles[index].removedAt = previous; return }
-        selectedID = profile.id; showRemovedApps = false
-        notice = "App returned to the library. Its existing environment and runtime are unchanged."
     }
     func openCompatibility() {
         showCompatibility = true

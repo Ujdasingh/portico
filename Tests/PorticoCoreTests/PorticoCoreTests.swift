@@ -174,10 +174,36 @@ final class PorticoCoreTests: XCTestCase {
         let logs = (try? FileManager.default.contentsOfDirectory(at: store.logDirectory(for: app), includingPropertiesForKeys: nil)) ?? []
         XCTAssertFalse(logs.contains { WineService.tail($0).contains("ARG=control.exe") })
     }
+    func testDeleteAppRemovesOnlySelectedEnvironmentAndNeverFollowsLinks() async throws {
+        let app = profile(); let prefix = try prepare(app)
+        let other = profile(); let otherPrefix = try prepare(other)
+        let external = root.appendingPathComponent("external-data")
+        try Data("keep".utf8).write(to: external)
+        try FileManager.default.createSymbolicLink(at: prefix.appendingPathComponent("shared"), withDestinationURL: external)
+        let service = WineService(store: store)
+        _ = try await service.snapshot(profile: app)
+        try await service.deleteApp(profile: app)
+        for folder in [store.prefixURL(for: app).deletingLastPathComponent(), store.backupDirectory(for: app), store.logDirectory(for: app)] {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: otherPrefix.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: runtime.path))
+        XCTAssertEqual(try String(contentsOf: external), "keep")
+    }
+    func testDeleteRejectsRedirectedBackupFolderBeforeDeletingApp() async throws {
+        let app = profile(); let prefix = try prepare(app)
+        let outside = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        try FileManager.default.createSymbolicLink(at: store.backupDirectory(for: app), withDestinationURL: outside)
+        do { try await WineService(store: store).deleteApp(profile: app); XCTFail("Must reject escape") } catch {}
+        XCTAssertTrue(FileManager.default.fileExists(atPath: prefix.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outside.path))
+    }
     func testRemovalProbeRefusesFailedServerWithoutChangingMetadata() async throws {
         let app = profile(); _ = try prepare(app); try store.save([app])
         try writeExecutable("#!/bin/sh\nexit 1\n", to: runtime.deletingLastPathComponent().appendingPathComponent("wineserver"))
-        do { try await WineService(store: store).checkIdleForRemoval(profile: app); XCTFail("Cannot remove busy or unknown state") }
+        do { try await WineService(store: store).deleteApp(profile: app); XCTFail("Cannot remove busy or unknown state") }
         catch { XCTAssertTrue(error.localizedDescription.contains("environment")) }
         XCTAssertEqual(try store.load(), [app])
     }

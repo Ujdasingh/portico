@@ -9,7 +9,7 @@ struct ContentView: View {
     @State private var confirmRestore: PrefixSnapshot?
     @State private var confirmStop = false
     @State private var confirmUninstall = false
-    @State private var confirmRemove = false
+    @State private var confirmDelete = false
 
     var body: some View {
         NavigationSplitView {
@@ -43,7 +43,6 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $model.showCompatibility) { CompatibilityView().environmentObject(model) }
-        .sheet(isPresented: $model.showRemovedApps) { RemovedAppsView().environmentObject(model) }
         .sheet(isPresented: $model.showAdd) { AddAppView().environmentObject(model) }
         .sheet(isPresented: $model.showRuntime) { RuntimeView().environmentObject(model) }
         .sheet(isPresented: $model.showSupport) { SupportReportView().environmentObject(model) }
@@ -59,11 +58,11 @@ struct ContentView: View {
         .alert("Open Windows uninstaller?", isPresented: $confirmUninstall) {
             Button("Back up and continue") { if let profile = model.selected { model.uninstall(profile) } }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Portico first creates a verified backup, then opens this environment's Windows uninstaller. Choose the program there. Uninstallers may delete app data; external folders are not backed up. For portable apps, use Remove from library instead.") }
-        .alert("Remove this app from the library?", isPresented: $confirmRemove) {
-            Button("Remove from library") { if let profile = model.selected { model.removeFromLibrary(profile) } }
+        } message: { Text("Portico first creates a verified backup, then opens this environment's Windows uninstaller. Choose the program there. Uninstallers may delete app data; external folders are not backed up. For portable apps, use Delete App instead.") }
+        .alert("Permanently delete this app?", isPresented: $confirmDelete) {
+            Button("Delete App", role: .destructive) { if let profile = model.selected { model.deleteApp(profile) } }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("The entry will be hidden. Its Windows environment, data, runtime and backups stay on disk. Recover it from Removed apps. This does not free disk space or surrender a licence.") }
+        } message: { Text("This permanently deletes the selected app's Windows environment, all data inside it, session logs and backups. This cannot be undone. Other apps, shared runtimes and external folders are kept. This does not surrender a licence.") }
         .alert("Restore this backup?", isPresented: Binding(get: { confirmRestore != nil }, set: { if !$0 { confirmRestore = nil } })) {
             Button("Restore") { if let profile = model.selected, let snapshot = confirmRestore { model.restore(profile, snapshot: snapshot) }; confirmRestore = nil }
             Button("Cancel", role: .cancel) { confirmRestore = nil }
@@ -106,9 +105,7 @@ struct ContentView: View {
                 Section("Library") {
                     Label("All Apps", systemImage: "square.grid.2x2").tag(SidebarItem.allApps)
                     Button { model.openCompatibility() } label: { Label("This Mac & Compatibility", systemImage: "laptopcomputer") }.buttonStyle(.plain)
-                    Button { model.showRemovedApps = true } label: {
-                        Label("Removed Apps", systemImage: "archivebox").badge(model.removedProfiles.count)
-                    }.buttonStyle(.plain)
+
                 }
                 Section("Windows Apps") {
                     ForEach(model.activeProfiles.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { profile in
@@ -254,10 +251,10 @@ struct ContentView: View {
             Surface {
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Uninstall a program, or hide this library entry while retaining its files.").font(.callout).foregroundStyle(.secondary)
+                        Text("Uninstall a Windows program, or permanently delete this app and all files in its environment.").font(.callout).foregroundStyle(.secondary)
                         HStack {
                             Button("Uninstall Program…", role: .destructive) { confirmUninstall = true }.disabled(model.selectedBusy)
-                            Button("Remove from Library…", role: .destructive) { confirmRemove = true }.disabled(model.selectedBusy)
+                            Button("Delete App…", role: .destructive) { confirmDelete = true }.disabled(model.selectedBusy)
                         }.buttonStyle(.bordered)
                     }.padding(.top, 12)
                 } label: { Label("Manage App", systemImage: "ellipsis.circle").font(.headline) }

@@ -57,28 +57,3 @@ struct CompatibilityView: View {
         }.padding(26).frame(width: 780, height: 650).background(Palette.canvas)
     }
 }
-
-struct RemovedAppsView: View {
-    @EnvironmentObject var model: AppModel
-    @Environment(\.dismiss) var dismiss
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Removed apps").font(.system(size: 23, weight: .semibold))
-            Text("These entries are hidden from your library. Their environments and backups remain on disk; removing an entry does not free space.")
-                .font(.system(size: 12)).foregroundStyle(Palette.muted)
-            ScrollView {
-                VStack(spacing: 12) {
-                    if model.removedProfiles.isEmpty { Text("No removed apps.").padding(30) }
-                    ForEach(model.removedProfiles) { profile in
-                        HStack {
-                            Text(profile.name); Spacer()
-                            Button("Recover") { model.recoverRemovedApp(profile) }
-                            Button("Show files") { model.reveal(model.store.prefixURL(for: profile).deletingLastPathComponent()) }
-                        }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
-                    }
-                }
-            }.frame(height: 260)
-            HStack { Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
-        }.padding(26).frame(width: 620).background(Palette.canvas)
-    }
-}

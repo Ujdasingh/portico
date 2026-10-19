@@ -2,7 +2,7 @@
 
 A native macOS workspace for Windows business applications, powered by Wine.
 
-Portico manages installation, launch settings, separate Windows environments, local logs, and recovery snapshots. TallyPrime is the first tested application family. **Version 0.4 is a development preview, not a certified production accounting environment.**
+Portico manages installation, launch settings, separate Windows environments, local logs, and recovery snapshots. TallyPrime is the first tested application family. **Version 0.5 is a development preview, not a certified production accounting environment.**
 
 ## Features
 
@@ -75,10 +75,10 @@ Copyright reserved. Public source visibility does not grant a licence to copy, m
 ## App management and compatibility
 
 - **Manage app → Uninstall program…** creates a verified prefix backup, then opens Wine’s Windows uninstaller for that environment. Complete or cancel the Windows dialog yourself. Some portable applications have no registered uninstaller. External data is not in the backup.
-- **Remove from library…** hides an idle profile while retaining its environment, data, runtime and backups. **Removed apps → Recover** returns the same entry. This does not free storage or surrender a licence. Use a program's uninstaller to remove its installed files; Portico has no permanent environment deletion action.
+- **Manage App → Delete App…** permanently deletes the idle app’s entire Windows environment, its local data, logs and Portico backups after confirmation. Shared runtimes, other app environments and external folders are preserved. This cannot be undone and does not surrender a licence. Previously hidden entries appear in the library so they can be managed directly.
 - **This Mac & compatibility** reads chip, RAM, Metal GPU, macOS and free library-volume storage locally. Business/game tabs offer a small, dated guidance catalog with publisher/reference links. Memory/storage thresholds are conservative planning advice, not measured app requirements. The screen does not change existing runtime configuration, download anything, or upload hardware information.
 - No Windows game is verified by Portico. Native alternatives, limited user reports, experimental cases and unsupported anti-cheat requirements are distinguished. CrossOver and Steam Deck results do not establish Portico compatibility.
 
 ## Native Mac interface
 
-The sidebar supports app selection and search. Use the toolbar to add an app, open runtime settings or inspect the session log. App pages keep **Open** prominent, with common tools and backups below. Expand **Launch Settings** for the executable/runtime and **Manage App** for uninstall/removal. The interface follows macOS appearance and accent colors while retaining installed apps’ original icons.
+The sidebar supports app selection and search. Use the toolbar to add an app, open runtime settings or inspect the session log. App pages keep **Open** prominent, with common tools and backups below. Expand **Launch Settings** for the executable/runtime and **Manage App** for uninstall or permanent deletion. The interface follows macOS appearance and accent colors while retaining installed apps’ original icons.

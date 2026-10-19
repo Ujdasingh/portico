@@ -96,3 +96,11 @@ Design references: [Apple sidebars](https://developer.apple.com/design/human-int
 - Inspected dark-mode screenshots of app detail, overview and Add App dialog. Original installed icons, readable system colors and standard controls render correctly. Checked search/no-results, settings/management disclosures, compatibility sheet and Escape dismissal. No system appearance preference was changed; light-mode visual verification remains separate.
 - Installed version 0.4.1 retains the library pointer, metadata checksum and a rollback copy of the previous app. Tally was not launched, stopped, uninstalled or reconfigured. Left the application on TallyPrime 5.1's detail page.
 - Native release build and signature verification pass. This change is limited to view selection state and version metadata; manual interaction checks exercise the actual regression.
+
+## 0.5.0 permanent app deletion — 19 October 2026
+
+- Replaced library hiding/recovery with permanent Delete App. Previously hidden entries are visible again until explicitly deleted. Uninstall Program remains available.
+- Deletion requires an idle environment and operation lock, validates all destinations before mutation, and removes only that profile’s environment, logs and backups. Shared runtimes and external symlink targets are preserved.
+- All 30 tests pass, including scoped deletion, external-target preservation, redirected-path rejection and failed-idle-probe refusal. Release build and ad hoc signature verification pass.
+- Installed 0.5.0 with the existing library pointer and unchanged metadata during bundle replacement. Verified the two remaining app entries, management buttons and permanent-deletion warning; cancelled the test dialog.
+- The user-requested hidden older TallyPrime environment was deleted separately through the tested backend. TallyPrime 5.1 and the shared runtime remain. No Tally launch, licence change or reconfiguration was performed.
