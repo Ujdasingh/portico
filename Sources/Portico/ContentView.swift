@@ -4,6 +4,7 @@ import PorticoCore
 
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
+    private enum SidebarItem: Hashable { case allApps, app(UUID) }
     @State private var search = ""
     @State private var confirmRestore: PrefixSnapshot?
     @State private var confirmStop = false
@@ -92,10 +93,18 @@ struct ContentView: View {
     }
     private var sidebar: some View {
         VStack(spacing: 0) {
-            List(selection: $model.selectedID) {
+            List(selection: Binding<SidebarItem?>(
+                get: { model.selectedID.map(SidebarItem.app) ?? .allApps },
+                set: { selection in
+                    switch selection {
+                    case .allApps: model.selectedID = nil
+                    case .app(let id): model.selectedID = id
+                    case nil: break
+                    }
+                }
+            )) {
                 Section("Library") {
-                    Button { model.selectedID = nil } label: { Label("All Apps", systemImage: "square.grid.2x2") }
-                        .buttonStyle(.plain)
+                    Label("All Apps", systemImage: "square.grid.2x2").tag(SidebarItem.allApps)
                     Button { model.openCompatibility() } label: { Label("This Mac & Compatibility", systemImage: "laptopcomputer") }.buttonStyle(.plain)
                     Button { model.showRemovedApps = true } label: {
                         Label("Removed Apps", systemImage: "archivebox").badge(model.removedProfiles.count)
@@ -110,7 +119,7 @@ struct ContentView: View {
                                 Text(model.operations[profile.id] != nil ? "In use" : profile.executablePath == nil ? "Setup needed" : "Installed")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                        }.padding(.vertical, 4).tag(profile.id)
+                        }.padding(.vertical, 4).tag(SidebarItem.app(profile.id))
                     }
                     if model.activeProfiles.isEmpty { Text("Add an app to get started.").font(.callout).foregroundStyle(.secondary) }
                     else if !search.isEmpty && !model.activeProfiles.contains(where: { $0.name.localizedCaseInsensitiveContains(search) }) {

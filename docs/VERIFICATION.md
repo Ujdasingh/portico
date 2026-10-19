@@ -88,3 +88,11 @@ All 28 tests pass, including exact control-panel arguments and preservation of a
 - All 28 existing automated tests pass. Native release build and ad hoc signature verification pass. Installed in Applications with library metadata unchanged and previous application retained. UI screenshot and interaction validation could not yet run because the Mac became locked; the user was asked to unlock it.
 
 Design references: [Apple sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars), [buttons](https://developer.apple.com/design/human-interface-guidelines/buttons), [SF Symbols](https://developer.apple.com/design/human-interface-guidelines/sf-symbols), [toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars). The implementation uses macOS 14-compatible native controls, not newer-OS-only visual APIs.
+
+## 0.4.1 UI verification and overview navigation fix — 19 October 2026
+
+- Resumed native UI checks after the Mac was unlocked. All Apps did not clear the existing selection because a nil model selection conflicted with native List selection. Added a distinct, typed overview selection alongside app selections.
+- Built and installed the fix, then verified All Apps opens the library overview and highlights its row. Selecting an overview card opens the matching app detail without launching it. Native sidebar hide/show works.
+- Inspected dark-mode screenshots of app detail, overview and Add App dialog. Original installed icons, readable system colors and standard controls render correctly. Checked search/no-results, settings/management disclosures, compatibility sheet and Escape dismissal. No system appearance preference was changed; light-mode visual verification remains separate.
+- Installed version 0.4.1 retains the library pointer, metadata checksum and a rollback copy of the previous app. Tally was not launched, stopped, uninstalled or reconfigured. Left the application on TallyPrime 5.1's detail page.
+- Native release build and signature verification pass. This change is limited to view selection state and version metadata; manual interaction checks exercise the actual regression.
